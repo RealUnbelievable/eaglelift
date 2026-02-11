@@ -1,39 +1,81 @@
+/* ===== Whole page background ===== */
 body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: linear-gradient(to right, #1a1a1a, #333);
+  margin: 0;                         
+  font-family: "Lucida Handwriting";  
+  background: linear-gradient(to right, #111, #333);
   color: white;
 }
 
-.top-buttons {
+/* ===== Main app container ===== */
+.app {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ===== Clock in the top-left corner ===== */
+.clock {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 15px;
+  left: 20px;
+  font-size: 14px;
+  opacity: 0.9;
+  line-height: 1.2;
+  text-align: left;
 }
 
-button {
-  padding: 8px 16px;
-  margin: 5px;
-  border: none;
-  border-radius: 20px;
-  background: #28a745;
-  color: white;
-  cursor: pointer;
+.date {
+  font-size: 13px;
+  opacity: 0.7;
 }
 
-button:hover {
-  background: #218838;
-}
-
+/* ===== Center container for login/register/dashboard ===== */
 .center {
   text-align: center;
-  margin-top: 150px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 20px;
+  border-radius: 30px;
+  width: 280px;
+  margin: 0 35px;
 }
 
+/* ===== Input fields (username & password) ===== */
 input {
   display: block;
   margin: 10px auto;
   padding: 10px;
+  width: 220px;
   border-radius: 10px;
   border: none;
+  font-size: 14px;
+}
+
+/* ===== Main buttons (login, register, etc.) ===== */
+button {
+  display: block;
+  margin: 10px auto;
+  padding: 10px 20px;
+  border-radius: 25px;
+  border: none;
+  background: #5ebafc;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* ===== Hover effect for main buttons ===== */
+button:hover {
+  background: #747bff;
+}
+
+/* ===== Secondary buttons (Register, Back, etc.) ===== */
+.secondary {
+  background: transparent;
+  border: 1px solid white;
+}
+
+/* ===== Hover effect for secondary buttons ===== */
+.secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
 }

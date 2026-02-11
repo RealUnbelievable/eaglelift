@@ -1,76 +1,194 @@
-import { useState } from "react";
+// React hooks for state and lifecycle behavior
+import { useState, useEffect } from "react";
+
+// Import CSS styles
 import "./App.css";
 
 function App() {
-  const [screen, setScreen] = useState("home");
+  /* =========================
+     SCREEN / PAGE STATE
+     ========================= */
+
+  // Controls which screen is shown:
+  // "login" | "register" | "dashboard"
+  const [screen, setScreen] = useState("login");
+
+  /* =========================
+     USER INPUT STATE
+     ========================= */
+
+  // Username entered by the user
   const [username, setUsername] = useState("");
+
+  // Password entered by the user
   const [password, setPassword] = useState("");
 
+  /* =========================
+     DATE & TIME STATE
+     ========================= */
+
+  // Stores the current time
+  const [time, setTime] = useState(new Date());
+
+  // Runs once when app loads
+  // Updates the clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date());
+    }, 1000);
+
+    // Cleanup when component unmounts
+    return () => clearInterval(timer);
+  }, []);
+
+  /* =========================
+     REGISTER FUNCTION
+     ========================= */
+
   const register = () => {
-    localStorage.setItem("gymUser", username);
+    // Force username to lowercase
+    const user = username.toLowerCase();
+
+    // Basic validation
+    if (!user || !password) {
+      alert("Fill in all fields");
+      return;
+    }
+
+    // Save credentials in browser storage
+    // (Temporary — for learning only)
+    localStorage.setItem("gymUser", user);
     localStorage.setItem("gymPass", password);
+
+    // Go to logged-in screen
     setScreen("dashboard");
   };
 
+  /* =========================
+     LOGIN FUNCTION
+     ========================= */
+
   const login = () => {
+    // Get saved credentials
     const savedUser = localStorage.getItem("gymUser");
     const savedPass = localStorage.getItem("gymPass");
 
-    if (username === savedUser && password === savedPass) {
+    // Force lowercase username
+    const user = username.toLowerCase();
+
+    // Check credentials
+    if (user === savedUser && password === savedPass) {
       setScreen("dashboard");
     } else {
       alert("Invalid login");
     }
   };
 
-  if (screen === "dashboard") {
-    return (
-      <div className="center">
-        <h1>You’re signed in</h1>
-      </div>
-    );
-  }
-
-  if (screen === "register") {
-    return (
-      <div className="center">
-        <h2>Register</h2>
-        <input
-          placeholder="Username"
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button onClick={register}>Create Account</button>
-        <button onClick={() => setScreen("home")}>Back</button>
-      </div>
-    );
-  }
+  /* =========================
+     UI / JSX
+     ========================= */
 
   return (
-    <div>
-      <div className="top-buttons">
-        <button onClick={() => setScreen("home")}>Login</button>
-        <button onClick={() => setScreen("register")}>Register</button>
+    <div className="app">
+      
+      {/* Top-left date & time (visible on every page) */}
+      <div className="clock">
+        {time.toLocaleTimeString([], {
+         hour: "2-digit",
+         minute: "2-digit",
+        } as Intl.DateTimeFormatOptions)}
+        <div className = "date">
+          {time.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric"})}
+        </div>
       </div>
 
-      <div className="center">
-        <h1>Welcome to EagleLift</h1>
+      {/* ================= DASHBOARD SCREEN ================= */}
+      {screen === "dashboard" && (
+        <div className="center">
+          <h1>You’re logged in</h1>
 
-        <input
-          placeholder="Username"
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button onClick={login}>Sign In</button>
-      </div>
+          {/* ADD FUTURE FEATURES HERE:
+              - Workout tracker
+              - Log exercises
+              - Logout button
+          */}
+        </div>
+      )}
+
+      {/* ================= REGISTER SCREEN ================= */}
+      {screen === "register" && (
+        <div className="center">
+          <h1>Register</h1>
+
+          {/* Username input */}
+          <input
+            placeholder="Username"
+            onChange={(e) =>
+              setUsername(e.target.value.toLowerCase())
+            }
+          />
+
+          {/* Password input */}
+          <input
+            type="password"
+            placeholder="Password"
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
+          />
+
+          {/* Create account button */}
+          <button onClick={register}>
+            Create Account
+          </button>
+
+          {/* Back to login */}
+          <button
+            className="secondary"
+            onClick={() => setScreen("login")}
+          >
+            Back to Login
+          </button>
+        </div>
+      )}
+
+      {/* ================= LOGIN SCREEN ================= */}
+      {screen === "login" && (
+        <div className="center">
+          <h1>Welcome to EagleLift</h1>
+
+          {/* Username input */}
+          <input
+            placeholder="Username"
+            onChange={(e) =>
+              setUsername(e.target.value.toLowerCase())
+            }
+          />
+
+          {/* Password input */}
+          <input
+            type="password"
+            placeholder="Password"
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
+          />
+
+          {/* Login button */}
+          <button onClick={login}>
+            Login
+          </button>
+
+          {/* Go to register screen */}
+          <button
+            className="secondary"
+            onClick={() => setScreen("register")}
+          >
+            Register
+          </button>
+        </div>
+      )}
+
     </div>
   );
 }
