@@ -1,3 +1,11 @@
+//Firebase authentication
+import { auth } from "./firebase";
+import {
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+} from "firebase/auth";
+
+
 // React hooks for state and lifecycle behavior
 import { useState, useEffect } from "react";
 
@@ -45,44 +53,42 @@ function App() {
      REGISTER FUNCTION
      ========================= */
 
-  const register = () => {
-    // Force username to lowercase
-    const user = username.toLowerCase();
+    const register = async () => {
+        if (!username || !password) {
+            alert("Fill in all fields");
+            return;
+        }
 
-    // Basic validation
-    if (!user || !password) {
-      alert("Fill in all fields");
-      return;
-    }
+        try {
+            await createUserWithEmailAndPassword(auth, username, password);
+            setScreen("dashboard");
+        } catch (error) {
+            if (error instanceof Error) {
+                alert(error.message);
+            } else {
+                alert("Registration failed");
+            }
+        }
+    };
 
-    // Save credentials in browser storage
-    // (Temporary — for learning only)
-    localStorage.setItem("gymUser", user);
-    localStorage.setItem("gymPass", password);
-
-    // Go to logged-in screen
-    setScreen("dashboard");
-  };
 
   /* =========================
      LOGIN FUNCTION
      ========================= */
 
-  const login = () => {
-    // Get saved credentials
-    const savedUser = localStorage.getItem("gymUser");
-    const savedPass = localStorage.getItem("gymPass");
+    const login = async () => {
+        try {
+            await signInWithEmailAndPassword(auth, username, password);
+            setScreen("dashboard");
+        } catch (error) {
+            if (error instanceof Error) {
+                alert(error.message);
+            } else {
+                alert("Invalid login");
+            }
+        }
+    };
 
-    // Force lowercase username
-    const user = username.toLowerCase();
-
-    // Check credentials
-    if (user === savedUser && password === savedPass) {
-      setScreen("dashboard");
-    } else {
-      alert("Invalid login");
-    }
-  };
 
   /* =========================
      UI / JSX
@@ -93,10 +99,10 @@ function App() {
       
       {/* Top-left date & time (visible on every page) */}
       <div className="clock">
-        {time.toLocaleTimeString([], {
-         hour: "2-digit",
-         minute: "2-digit",
-        } as Intl.DateTimeFormatOptions)}
+      {time.toLocaleTimeString([], {
+           hour: "2-digit",
+           minute: "2-digit",
+       })}
         <div className = "date">
           {time.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric"})}
         </div>
@@ -122,7 +128,7 @@ function App() {
 
           {/* Username input */}
           <input
-            placeholder="Username"
+            placeholder="Email"
             onChange={(e) =>
               setUsername(e.target.value.toLowerCase())
             }
@@ -159,7 +165,7 @@ function App() {
 
           {/* Username input */}
           <input
-            placeholder="Username"
+            placeholder="Email"
             onChange={(e) =>
               setUsername(e.target.value.toLowerCase())
             }
