@@ -49,6 +49,17 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
+    // Workout Schedule State
+    // stores schedules as a string for now
+    const [schedules, setSchedules] = useState<string[]>([]);
+
+    // create schedule function
+    const createSchedule = () => {
+        const newScheduleName = `Workout Plan ${schedules.length + 1}`;
+        setSchedules([...schedules, newScheduleName]);
+    };
+
+
   /* =========================
      REGISTER FUNCTION
      ========================= */
@@ -109,17 +120,33 @@ function App() {
       </div>
 
       {/* ================= DASHBOARD SCREEN ================= */}
-      {screen === "dashboard" && (
-        <div className="center">
-          <h1>You’re logged in</h1>
+          {screen === "dashboard" && (
+              <div className="center">
+                  <h1>Your Workout Schedules</h1>
 
-          {/* ADD FUTURE FEATURES HERE:
-              - Workout tracker
-              - Log exercises
-              - Logout button
-          */}
-        </div>
-      )}
+                  {schedules.length === 0 ? (
+                      <>
+                          <p>No schedules created yet.</p>
+                          <button onClick={createSchedule}>
+                              Create Workout Schedule
+                          </button>
+                      </>
+                  ) : (
+                      <>
+                          <ul>
+                              {schedules.map((schedule, index) => (
+                                  <li key={index}>{schedule}</li>
+                              ))}
+                          </ul>
+
+                          <button onClick={createSchedule}>
+                              Add Another Schedule
+                          </button>
+                      </>
+                  )}
+              </div>
+          )}
+
 
       {/* ================= REGISTER SCREEN ================= */}
       {screen === "register" && (
