@@ -4,15 +4,73 @@ body {
   font-family: "Lucida Handwriting";  
   background: linear-gradient(to right, #111, #333);
   color: white;
+  overflow-x: hidden;
 }
+/* ===== Delete button inside schedule cards ===== */
+.schedule-card {
+    display: flex; /* allow text + button side by side */
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+ .schedule-card:hover {
+        background: rgba(255, 255, 255, 0.2);
+}
+
+.delete-btn {
+    background-color: #ff4d4d; /* red accent for delete */
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.delete-btn:hover {
+        background-color: #ff1a1a;
+}
+
+.login-screen {
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.center {
+    text-align: center;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 20px;
+    border-radius: 30px;
+    width: 90%;
+    max-width: 350px;
+}
+
+
 
 /* ===== Main app container ===== */
 .app {
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+    min-height: 100dvh;
+    width: 100%;
 }
+
+
+.content {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+
+
 
 /* ===== Clock in the top-left corner ===== */
 .clock {
@@ -31,14 +89,24 @@ body {
 }
 
 /* ===== Center container for login/register/dashboard ===== */
-.center {
-  text-align: center;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 20px;
-  border-radius: 30px;
-  width: 280px;
-  margin: 0 35px;
+
+
+/* Expanded card for dashboard to present all schedules*/
+.dashboard {
+    min-height: 100dvh;
+    width: 100%;
+    padding: 80px 20px 20px 20px;
+    box-sizing: border-box;
 }
+
+.dashboard-content {
+    max-width: 500px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+
+    
 
 /* ===== Input fields (username & password) ===== */
 input {

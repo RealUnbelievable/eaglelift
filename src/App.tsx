@@ -12,7 +12,24 @@ import { useState, useEffect } from "react";
 // Import CSS styles
 import "./App.css";
 
+// Firestore import
+import { db } from "./firebase";
+import {
+    collection,
+    addDoc,     
+    getDocs,
+    query,
+    where,
+    
+} from "firebase/firestore";
+
+
+
+
+
 function App() {
+
+
   /* =========================
      SCREEN / PAGE STATE
      ========================= */
@@ -29,7 +46,13 @@ function App() {
   const [username, setUsername] = useState("");
 
   // Password entered by the user
-  const [password, setPassword] = useState("");
+    const [password, setPassword] = useState("");
+
+    // schedule selection states
+    const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
+   
+  
+
 
   /* =========================
      DATE & TIME STATE
@@ -51,13 +74,62 @@ function App() {
 
     // Workout Schedule State
     // stores schedules as a string for now
-    const [schedules, setSchedules] = useState<string[]>([]);
+    type Schedule = {
+        id: string;
+        name: string;
+    };
+
+    const [schedules, setSchedules] = useState<Schedule[]>([]);
+
+
+    // Load Schedules method
+    const loadSchedules = async () => {
+        if (!auth.currentUser) return;
+
+        const q = query(
+            collection(db, "schedules"),
+            where("userId", "==", auth.currentUser.uid)
+        );
+
+        const querySnapshot = await getDocs(q);
+
+        const userSchedules: Schedule[] = [];
+
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            userSchedules.push({
+                id: doc.id,
+                name: data.name,
+            });
+        });
+
+
+        setSchedules(userSchedules);
+    };
+
+    
+
 
     // create schedule function
-    const createSchedule = () => {
+    const createSchedule = async () => {
+        if (!auth.currentUser) return;
+
         const newScheduleName = `Workout Plan ${schedules.length + 1}`;
-        setSchedules([...schedules, newScheduleName]);
+
+        try {
+            await addDoc(collection(db, "schedules"), {
+                userId: auth.currentUser.uid,
+                name: newScheduleName
+            });
+
+            loadSchedules(); // refresh after adding
+        } catch (error) {
+            console.error("Error adding schedule:", error);
+        }
     };
+
+
+
 
 
   /* =========================
@@ -73,6 +145,7 @@ function App() {
         try {
             await createUserWithEmailAndPassword(auth, username, password);
             setScreen("dashboard");
+            await loadSchedules();
         } catch (error) {
             if (error instanceof Error) {
                 alert(error.message);
@@ -91,6 +164,7 @@ function App() {
         try {
             await signInWithEmailAndPassword(auth, username, password);
             setScreen("dashboard");
+            await loadSchedules();
         } catch (error) {
             if (error instanceof Error) {
                 alert(error.message);
@@ -119,38 +193,71 @@ function App() {
         </div>
       </div>
 
-      {/* ================= DASHBOARD SCREEN ================= */}
+          {/* ================= DASHBOARD SCREEN ================= */}
           {screen === "dashboard" && (
-              <div className="center">
-                  <h1>Your Workout Schedules</h1>
+              <div className="dashboard">
+                  <div className="dashboard-content">
 
-                  {schedules.length === 0 ? (
-                      <>
-                          <p>No schedules created yet.</p>
-                          <button onClick={createSchedule}>
-                              Create Workout Schedule
-                          </button>
-                      </>
-                  ) : (
-                      <>
-                          <ul>
-                              {schedules.map((schedule, index) => (
-                                  <li key={index}>{schedule}</li>
-                              ))}
-                          </ul>
+                      {/* ===== If NO schedule selected ===== */}
+                      {!selectedSchedule && (
+                          <>
+                              <h1>Your Workout Schedules</h1>
 
-                          <button onClick={createSchedule}>
-                              Add Another Schedule
-                          </button>
-                      </>
-                  )}
+                              {schedules.length === 0 ? (
+                                  <>
+                                      <p>No schedules created yet.</p>
+                                      <button onClick={createSchedule}>
+                                          Create Workout Schedule
+                                      </button>
+                                  </>
+                              ) : (
+                                  <>
+                                      <div className="schedule-list">
+                                          {schedules.map((schedule) => (
+                                              <div
+                                                  key={schedule.id}
+                                                  className="schedule-card"
+                                                  onClick={() => setSelectedSchedule(schedule.id)}
+                                              >
+                                                  {schedule.name}
+                                              </div>
+                                          ))}
+                                      </div>
+
+                                      <button onClick={createSchedule}>
+                                          Add Another Schedule
+                                      </button>
+                                  </>
+                              )}
+                          </>
+                      )}
+
+                      {/* ===== If A Schedule IS Selected ===== */}
+                      {selectedSchedule && (
+                          <div className="schedule-detail">
+                              <h2>Schedule Details</h2>
+
+                              <p>Schedule ID: {selectedSchedule}</p>
+
+                              <button
+                                  className="secondary"
+                                  onClick={() => setSelectedSchedule(null)}
+                              >
+                                  Back to Schedules
+                              </button>
+                          </div>
+                      )}
+
+                  </div>
               </div>
           )}
 
 
       {/* ================= REGISTER SCREEN ================= */}
-      {screen === "register" && (
-        <div className="center">
+          {screen === "register" && (
+              <div className="login-screen">
+              <div className="center">
+       
           <h1>Register</h1>
 
           {/* Username input */}
@@ -182,12 +289,16 @@ function App() {
           >
             Back to Login
           </button>
-        </div>
+                  </div>
+                  </div>
+       
       )}
 
       {/* ================= LOGIN SCREEN ================= */}
       {screen === "login" && (
-        <div className="center">
+        <div className="login-screen">
+            <div className="center">
+
           <h1>Welcome to EagleLift</h1>
 
           {/* Username input */}
@@ -219,6 +330,7 @@ function App() {
           >
             Register
           </button>
+                  </div>
         </div>
       )}
 
