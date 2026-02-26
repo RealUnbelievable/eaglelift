@@ -1,438 +1,415 @@
-//Firebase authentication
-import { auth } from "./firebase";
-import {
-    createUserWithEmailAndPassword,
-    signInWithEmailAndPassword,
-} from "firebase/auth";
-
-
-// React hooks for state and lifecycle behavior
 import { useState, useEffect } from "react";
-
-// Import CSS styles
 import "./App.css";
 
-// Firestore import
-import { db } from "./firebase";
+// Firebase
+import { auth, db } from "./firebase";
 import {
-    collection,
-    addDoc,
-    getDocs,
-    query,
-    where,
-    deleteDoc,
-    doc,
-    updateDoc
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  deleteDoc,
+  doc,
+  updateDoc,
 } from "firebase/firestore";
 
+// Gym data
+import { gyms } from "./gymData";
 
+/* =========================
+   TYPES
+   ========================= */
 
+type Schedule = {
+  id: string;
+  name: string;
+};
+
+type PlannerExercise = {
+  id: string;
+  name: string;
+  reps: number;
+  sets: number;
+  timer: number;
+};
 
 function App() {
-
-
   /* =========================
-     SCREEN / PAGE STATE
+     SCREEN STATE
      ========================= */
 
-  // Controls which screen is shown:
-  // "login" | "register" | "dashboard"
-  const [screen, setScreen] = useState("login");
+  const [screen, setScreen] = useState<"login" | "register" | "dashboard">(
+    "login"
+  );
 
   /* =========================
-     USER INPUT STATE
+     AUTH STATE
      ========================= */
 
-  // Username entered by the user
   const [username, setUsername] = useState("");
-
-  // Password entered by the user
-    const [password, setPassword] = useState("");
-
-    // schedule selection states
-    const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
-   
-    // Edit Schedule State
-    const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
-    const [newScheduleName, setNewScheduleName] = useState("");
-
+  const [password, setPassword] = useState("");
 
   /* =========================
-     DATE & TIME STATE
+     SCHEDULE STATE
      ========================= */
 
-  // Stores the current time
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(
+    null
+  );
+  const [newScheduleName, setNewScheduleName] = useState("");
+
+  /* =========================
+     PLANNER STATE
+     ========================= */
+
+  const [selectedGym, setSelectedGym] = useState(gyms[0]?.name || "");
+  const [plannerExercises, setPlannerExercises] = useState<PlannerExercise[]>(
+    []
+  );
+
+  /* =========================
+     TIME STATE
+     ========================= */
+
   const [time, setTime] = useState(new Date());
 
-  // Runs once when app loads
-  // Updates the clock every second
   useEffect(() => {
     const timer = setInterval(() => {
       setTime(new Date());
     }, 1000);
-
-    // Cleanup when component unmounts
     return () => clearInterval(timer);
   }, []);
 
-    // Workout Schedule State
-    // stores schedules as a string for now
-    type Schedule = {
-        id: string;
-        name: string;
-    };
-
-    const [schedules, setSchedules] = useState<Schedule[]>([]);
-
-
-    // Load Schedules method
-    const loadSchedules = async () => {
-        if (!auth.currentUser) return;
-
-        const q = query(
-            collection(db, "schedules"),
-            where("userId", "==", auth.currentUser.uid)
-        );
-
-        const querySnapshot = await getDocs(q);
-
-        const userSchedules: Schedule[] = [];
-
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            userSchedules.push({
-                id: doc.id,
-                name: data.name,
-            });
-        });
-
-
-        setSchedules(userSchedules);
-    };
-
-    const deleteSchedule = async (scheduleId: string) => {
-        if (!auth.currentUser) return;
-
-        const confirmDelete = window.confirm(
-            "Are you sure you want to delete this schedule?"
-        );
-
-        if (!confirmDelete) return;
-
-        try {
-            await deleteDoc(doc(db, "schedules", scheduleId));
-
-            // If the deleted schedule was selected, reset view
-            if (selectedSchedule === scheduleId) {
-                setSelectedSchedule(null);
-            }
-
-            // Refresh schedules list
-            await loadSchedules();
-
-        } catch (error) {
-            console.error("Failed to delete schedule:", error);
-        }
-    };
-
-    // Edit schedule feature
-    const renameSchedule = async (scheduleId: string) => {
-        if (!auth.currentUser) return;
-
-        if (!newScheduleName.trim()) {
-            alert("Schedule name cannot be empty.");
-            return;
-        }
-
-        try {
-            await updateDoc(doc(db, "schedules", scheduleId), {
-                name: newScheduleName.trim(),
-            });
-
-            setEditingScheduleId(null);
-            setNewScheduleName("");
-            await loadSchedules();
-
-        } catch (error) {
-            console.error("Error renaming schedule:", error);
-        }
-    };
-
-
-    // create schedule function
-    const createSchedule = async () => {
-        if (!auth.currentUser) return;
-
-        const newScheduleName = `Workout Plan ${schedules.length + 1}`;
-
-        try {
-            await addDoc(collection(db, "schedules"), {
-                userId: auth.currentUser.uid,
-                name: newScheduleName
-            });
-
-            loadSchedules(); // refresh after adding
-        } catch (error) {
-            console.error("Error adding schedule:", error);
-        }
-    };
-
-
-
-
-
   /* =========================
-     REGISTER FUNCTION
+     FIRESTORE FUNCTIONS
      ========================= */
 
-    const register = async () => {
-        if (!username || !password) {
-            alert("Fill in all fields");
-            return;
-        }
+  const loadSchedules = async () => {
+    if (!auth.currentUser) return;
 
-        try {
-            await createUserWithEmailAndPassword(auth, username, password);
-            setScreen("dashboard");
-            await loadSchedules();
-        } catch (error) {
-            if (error instanceof Error) {
-                alert(error.message);
-            } else {
-                alert("Registration failed");
-            }
-        }
-    };
+    const q = query(
+      collection(db, "schedules"),
+      where("userId", "==", auth.currentUser.uid)
+    );
 
+    const snapshot = await getDocs(q);
+
+    const userSchedules: Schedule[] = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      userSchedules.push({
+        id: doc.id,
+        name: data.name,
+      });
+    });
+
+    setSchedules(userSchedules);
+  };
+
+  const createSchedule = async () => {
+    if (!auth.currentUser) return;
+
+    const newName = `Workout Plan ${schedules.length + 1}`;
+
+    await addDoc(collection(db, "schedules"), {
+      userId: auth.currentUser.uid,
+      name: newName,
+    });
+
+    loadSchedules();
+  };
+
+  const deleteSchedule = async (id: string) => {
+    if (!auth.currentUser) return;
+    if (!window.confirm("Delete this schedule?")) return;
+
+    await deleteDoc(doc(db, "schedules", id));
+
+    if (selectedSchedule === id) {
+      setSelectedSchedule(null);
+      setPlannerExercises([]);
+    }
+
+    loadSchedules();
+  };
+
+  const renameSchedule = async (id: string) => {
+    if (!auth.currentUser) return;
+    if (!newScheduleName.trim()) return;
+
+    await updateDoc(doc(db, "schedules", id), {
+      name: newScheduleName.trim(),
+    });
+
+    setEditingScheduleId(null);
+    setNewScheduleName("");
+    loadSchedules();
+  };
 
   /* =========================
-     LOGIN FUNCTION
+     AUTH FUNCTIONS
      ========================= */
 
-    const login = async () => {
-        try {
-            await signInWithEmailAndPassword(auth, username, password);
-            setScreen("dashboard");
-            await loadSchedules();
-        } catch (error) {
-            if (error instanceof Error) {
-                alert(error.message);
-            } else {
-                alert("Invalid login");
-            }
-        }
-    };
+  const register = async () => {
+    await createUserWithEmailAndPassword(auth, username, password);
+    setScreen("dashboard");
+    loadSchedules();
+  };
 
+  const login = async () => {
+    await signInWithEmailAndPassword(auth, username, password);
+    setScreen("dashboard");
+    loadSchedules();
+  };
 
   /* =========================
-     UI / JSX
+     PLANNER FUNCTIONS
+     ========================= */
+
+  const addExercise = (name: string) => {
+    if (plannerExercises.some((e) => e.name === name)) return;
+
+    setPlannerExercises((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        name,
+        reps: 10,
+        sets: 3,
+        timer: 0,
+      },
+    ]);
+  };
+
+  const removeExercise = (name: string) => {
+    setPlannerExercises((prev) =>
+      prev.filter((exercise) => exercise.name !== name)
+    );
+  };
+
+  const currentGym = gyms.find((g) => g.name === selectedGym);
+
+  const groupedExercises =
+    currentGym?.exercises.reduce((acc: any, ex) => {
+      if (!acc[ex.muscle]) acc[ex.muscle] = [];
+      acc[ex.muscle].push(ex);
+      return acc;
+    }, {}) || {};
+
+  /* =========================
+     UI
      ========================= */
 
   return (
     <div className="app">
-      
-      {/* Top-left date & time (visible on every page) */}
       <div className="clock">
-      {time.toLocaleTimeString([], {
-           hour: "2-digit",
-           minute: "2-digit",
-       })}
-        <div className = "date">
-          {time.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric"})}
+        {time.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+        <div className="date">
+          {time.toLocaleDateString()}
         </div>
       </div>
 
-          {/* ================= DASHBOARD SCREEN ================= */}
-          {screen === "dashboard" && (
-              <div className="dashboard">
-                  <div className="dashboard-content">
-
-                      {/* ===== If NO schedule selected ===== */}
-                      {!selectedSchedule && (
-                          <>
-                              <h1>Your Workout Schedules</h1>
-
-                              {schedules.length === 0 ? (
-                                  <>
-                                      <p>No schedules created yet.</p>
-                                      <button onClick={createSchedule}>
-                                          Create Workout Schedule
-                                      </button>
-                                  </>
-                              ) : (
-                                  <>
-                                      <div className="schedule-list">
-                                              {schedules.map((schedule) => (
-                                                  <div
-                                                      key={schedule.id}
-                                                      className="schedule-card"
-                                                  >
-                                                      {editingScheduleId === schedule.id ? (
-                                                          <>
-                                                              <input
-                                                                  value={newScheduleName}
-                                                                  onChange={(e) => setNewScheduleName(e.target.value)}
-                                                                  placeholder="New schedule name"
-                                                              />
-
-                                                              <button
-                                                                  onClick={() => renameSchedule(schedule.id)}
-                                                              >
-                                                                  Save
-                                                              </button>
-
-                                                              <button
-                                                                  className="secondary"
-                                                                  onClick={() => {
-                                                                      setEditingScheduleId(null);
-                                                                      setNewScheduleName("");
-                                                                  }}
-                                                              >
-                                                                  Cancel
-                                                              </button>
-                                                          </>
-                                                      ) : (
-                                                          <>
-                                                              <div onClick={() => setSelectedSchedule(schedule.id)}>
-                                                                  {schedule.name}
-                                                              </div>
-
-                                                              <button
-                                                                  className="secondary"
-                                                                  onClick={(e) => {
-                                                                      e.stopPropagation();
-                                                                      setEditingScheduleId(schedule.id);
-                                                                      setNewScheduleName(schedule.name);
-                                                                  }}
-                                                              >
-                                                                  Rename
-                                                              </button>
-
-                                                              <button
-                                                                  className="secondary"
-                                                                  onClick={(e) => {
-                                                                      e.stopPropagation();
-                                                                      deleteSchedule(schedule.id);
-                                                                  }}
-                                                              >
-                                                                  Delete
-                                                              </button>
-                                                          </>
-                                                      )}
-                                                  </div>
-                                              ))}
-                                      </div>
-
-                                      <button onClick={createSchedule}>
-                                          Add Another Schedule
-                                      </button>
-                                  </>
-                              )}
-                          </>
-                      )}
-
-                      {/* ===== If A Schedule IS Selected ===== */}
-                      {selectedSchedule && (
-                          <div className="schedule-detail">
-                              <h2>Schedule Details</h2>
-
-                              <p>Schedule ID: {selectedSchedule}</p>
-
-                              <button
-                                  className="secondary"
-                                  onClick={() => setSelectedSchedule(null)}
-                              >
-                                  Back to Schedules
-                              </button>
-                          </div>
-                      )}
-
-                  </div>
-              </div>
-          )}
-
-
-      {/* ================= REGISTER SCREEN ================= */}
-          {screen === "register" && (
-              <div className="login-screen">
-              <div className="center">
-       
-          <h1>Register</h1>
-
-          {/* Username input */}
-          <input
-            placeholder="Email"
-            onChange={(e) =>
-              setUsername(e.target.value.toLowerCase())
-            }
-          />
-
-          {/* Password input */}
-          <input
-            type="password"
-            placeholder="Password"
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
-          />
-
-          {/* Create account button */}
-          <button onClick={register}>
-            Create Account
-          </button>
-
-          {/* Back to login */}
-          <button
-            className="secondary"
-            onClick={() => setScreen("login")}
-          >
-            Back to Login
-          </button>
-                  </div>
-                  </div>
-       
-      )}
-
-      {/* ================= LOGIN SCREEN ================= */}
+      {/* ================= LOGIN ================= */}
       {screen === "login" && (
         <div className="login-screen">
-            <div className="center">
-
-          <h1>Welcome to EagleLift</h1>
-
-          {/* Username input */}
+          <h1>EagleLift</h1>
           <input
             placeholder="Email"
-            onChange={(e) =>
-              setUsername(e.target.value.toLowerCase())
-            }
+            onChange={(e) => setUsername(e.target.value)}
           />
-
-          {/* Password input */}
           <input
             type="password"
             placeholder="Password"
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
+            onChange={(e) => setPassword(e.target.value)}
           />
-
-          {/* Login button */}
-          <button onClick={login}>
-            Login
-          </button>
-
-          {/* Go to register screen */}
-          <button
-            className="secondary"
-            onClick={() => setScreen("register")}
-          >
-            Register
-          </button>
-                  </div>
+          <button onClick={login}>Login</button>
+          <button onClick={() => setScreen("register")}>Register</button>
         </div>
       )}
 
+      {/* ================= REGISTER ================= */}
+      {screen === "register" && (
+        <div className="login-screen">
+          <h1>Register</h1>
+          <input
+            placeholder="Email"
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button onClick={register}>Create Account</button>
+          <button onClick={() => setScreen("login")}>Back</button>
+        </div>
+      )}
+
+      {/* ================= DASHBOARD ================= */}
+      {screen === "dashboard" && (
+        <div className="dashboard">
+
+          {!selectedSchedule && (
+            <>
+              <h1>Your Workout Schedules</h1>
+
+              {schedules.map((schedule) => (
+                <div key={schedule.id} className="schedule-card">
+                  <div onClick={() => setSelectedSchedule(schedule.id)}>
+                    {schedule.name}
+                  </div>
+                  <button onClick={() => deleteSchedule(schedule.id)}>
+                    Delete
+                  </button>
+                </div>
+              ))}
+
+              <button onClick={createSchedule}>
+                Create Schedule
+              </button>
+            </>
+          )}
+
+          {selectedSchedule && (
+            <div className="planner-page">
+
+              <button
+                onClick={() => {
+                  setSelectedSchedule(null);
+                  setPlannerExercises([]);
+                }}
+              >
+                ← Back
+              </button>
+
+              <div className="planner-layout">
+
+                {/* LEFT PANEL */}
+                <div className="planner-left">
+                  <h3>Select Gym</h3>
+
+                  <select
+                    value={selectedGym}
+                    onChange={(e) => setSelectedGym(e.target.value)}
+                  >
+                    {gyms.map((gym) => (
+                      <option key={gym.name} value={gym.name}>
+                        {gym.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {Object.entries(groupedExercises).map(
+                    ([muscle, exercises]: any) => (
+                      <div key={muscle}>
+                        <h4>{muscle}</h4>
+                        {exercises.map((exercise: any) => (
+                          <label key={exercise.name}>
+                            <input
+                              type="checkbox"
+                              checked={plannerExercises.some(
+                                (e) => e.name === exercise.name
+                              )}
+                              onChange={(e) =>
+                                e.target.checked
+                                  ? addExercise(exercise.name)
+                                  : removeExercise(exercise.name)
+                              }
+                            />
+                            {exercise.name}
+                          </label>
+                        ))}
+                      </div>
+                    )
+                  )}
+                </div>
+
+                {/* RIGHT PANEL */}
+                <div className="planner-right">
+                  <h3>Your Workout Plan</h3>
+
+                  <table className="planner-table">
+                    <thead>
+                      <tr>
+                        <th>Exercise</th>
+                        <th>Reps</th>
+                        <th>Sets</th>
+                        <th>Timer (sec)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {plannerExercises.map((exercise) => (
+                        <tr key={exercise.id}>
+                          <td>{exercise.name}</td>
+
+                          <td>
+                            <input
+                              type="number"
+                              value={exercise.reps}
+                              onChange={(e) =>
+                                setPlannerExercises((prev) =>
+                                  prev.map((ex) =>
+                                    ex.id === exercise.id
+                                      ? { ...ex, reps: +e.target.value }
+                                      : ex
+                                  )
+                                )
+                              }
+                            />
+                          </td>
+
+                          <td>
+                            <input
+                              type="number"
+                              value={exercise.sets}
+                              onChange={(e) =>
+                                setPlannerExercises((prev) =>
+                                  prev.map((ex) =>
+                                    ex.id === exercise.id
+                                      ? { ...ex, sets: +e.target.value }
+                                      : ex
+                                  )
+                                )
+                              }
+                            />
+                          </td>
+
+                          <td>
+                            <input
+                              type="number"
+                              value={exercise.timer}
+                              onChange={(e) =>
+                                setPlannerExercises((prev) =>
+                                  prev.map((ex) =>
+                                    ex.id === exercise.id
+                                      ? { ...ex, timer: +e.target.value }
+                                      : ex
+                                  )
+                                )
+                              }
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
