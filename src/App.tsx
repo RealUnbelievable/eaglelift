@@ -16,13 +16,14 @@ import "./App.css";
 import { db } from "./firebase";
 import {
     collection,
-    addDoc,     
+    addDoc,
     getDocs,
     query,
     where,
-    
+    deleteDoc,
+    doc,
+    updateDoc
 } from "firebase/firestore";
-
 
 
 
@@ -51,7 +52,9 @@ function App() {
     // schedule selection states
     const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
    
-  
+    // Edit Schedule State
+    const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+    const [newScheduleName, setNewScheduleName] = useState("");
 
 
   /* =========================
@@ -107,7 +110,53 @@ function App() {
         setSchedules(userSchedules);
     };
 
-    
+    const deleteSchedule = async (scheduleId: string) => {
+        if (!auth.currentUser) return;
+
+        const confirmDelete = window.confirm(
+            "Are you sure you want to delete this schedule?"
+        );
+
+        if (!confirmDelete) return;
+
+        try {
+            await deleteDoc(doc(db, "schedules", scheduleId));
+
+            // If the deleted schedule was selected, reset view
+            if (selectedSchedule === scheduleId) {
+                setSelectedSchedule(null);
+            }
+
+            // Refresh schedules list
+            await loadSchedules();
+
+        } catch (error) {
+            console.error("Failed to delete schedule:", error);
+        }
+    };
+
+    // Edit schedule feature
+    const renameSchedule = async (scheduleId: string) => {
+        if (!auth.currentUser) return;
+
+        if (!newScheduleName.trim()) {
+            alert("Schedule name cannot be empty.");
+            return;
+        }
+
+        try {
+            await updateDoc(doc(db, "schedules", scheduleId), {
+                name: newScheduleName.trim(),
+            });
+
+            setEditingScheduleId(null);
+            setNewScheduleName("");
+            await loadSchedules();
+
+        } catch (error) {
+            console.error("Error renaming schedule:", error);
+        }
+    };
 
 
     // create schedule function
@@ -213,15 +262,65 @@ function App() {
                               ) : (
                                   <>
                                       <div className="schedule-list">
-                                          {schedules.map((schedule) => (
-                                              <div
-                                                  key={schedule.id}
-                                                  className="schedule-card"
-                                                  onClick={() => setSelectedSchedule(schedule.id)}
-                                              >
-                                                  {schedule.name}
-                                              </div>
-                                          ))}
+                                              {schedules.map((schedule) => (
+                                                  <div
+                                                      key={schedule.id}
+                                                      className="schedule-card"
+                                                  >
+                                                      {editingScheduleId === schedule.id ? (
+                                                          <>
+                                                              <input
+                                                                  value={newScheduleName}
+                                                                  onChange={(e) => setNewScheduleName(e.target.value)}
+                                                                  placeholder="New schedule name"
+                                                              />
+
+                                                              <button
+                                                                  onClick={() => renameSchedule(schedule.id)}
+                                                              >
+                                                                  Save
+                                                              </button>
+
+                                                              <button
+                                                                  className="secondary"
+                                                                  onClick={() => {
+                                                                      setEditingScheduleId(null);
+                                                                      setNewScheduleName("");
+                                                                  }}
+                                                              >
+                                                                  Cancel
+                                                              </button>
+                                                          </>
+                                                      ) : (
+                                                          <>
+                                                              <div onClick={() => setSelectedSchedule(schedule.id)}>
+                                                                  {schedule.name}
+                                                              </div>
+
+                                                              <button
+                                                                  className="secondary"
+                                                                  onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      setEditingScheduleId(schedule.id);
+                                                                      setNewScheduleName(schedule.name);
+                                                                  }}
+                                                              >
+                                                                  Rename
+                                                              </button>
+
+                                                              <button
+                                                                  className="secondary"
+                                                                  onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      deleteSchedule(schedule.id);
+                                                                  }}
+                                                              >
+                                                                  Delete
+                                                              </button>
+                                                          </>
+                                                      )}
+                                                  </div>
+                                              ))}
                                       </div>
 
                                       <button onClick={createSchedule}>
