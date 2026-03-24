@@ -246,3 +246,69 @@ h1,h2,h3,h4 { font-weight: 600; letter-spacing: 0.5px; font-family: inherit; }
 .planner-header-buttons button:last-child {
   text-align: right; /* Log Out button right */
 }
+
+
+/* =========================
+   WORKOUT SESSION TIMER MODE
+   (Supports future workout mode features)
+   ========================= */
+
+.workout-timer {
+  font-size: 2rem;
+  text-align: center;
+  margin: 20px 0;
+  font-weight: 600;
+}
+
+/* Timer control buttons */
+.timer-controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* =========================
+   EXERCISE ROW HOVER FEEL
+   ========================= */
+
+.planner-table tr {
+  transition: 0.2s ease;
+}
+
+.planner-table tr:hover {
+  background: #f7faf6;
+}
+
+/* =========================
+   CHECKBOX STYLE (KEEP DESIGN SAME)
+   ========================= */
+
+.planner-left input[type="checkbox"] {
+  accent-color: #7aa67a;
+  width: 14px;
+  height: 14px;
+}
+
+/* =========================
+   INPUT NUMBER SPINNER CLEANUP
+   ========================= */
+
+.planner-table input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.planner-table input[type="number"]::-webkit-outer-spin-button,
+.planner-table input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* =========================
+   SMOOTH BUTTON CLICK EFFECT
+   ========================= */
+
+button:active {
+  transform: scale(0.96);
+}
