@@ -32,168 +32,168 @@ type PlannerExercise = {
 };
 
 function App() {
-  const [screen, setScreen] = useState<
-    "login" | "register" | "dashboard" | "planner"
-  >("login");
+    const [screen, setScreen] = useState<
+        "login" | "register" | "dashboard" | "planner"
+    >("login");
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
 
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [selectedSchedule, setSelectedSchedule] =
-    useState<Schedule | null>(null);
+    const [schedules, setSchedules] = useState<Schedule[]>([]);
+    const [selectedSchedule, setSelectedSchedule] =
+        useState<Schedule | null>(null);
 
-  const [selectedGym, setSelectedGym] = useState(
-    gyms[0]?.name || ""
-  );
-
-  const [plannerExercises, setPlannerExercises] = useState<
-    PlannerExercise[]
-  >([]);
-
-  const [time, setTime] = useState(new Date());
-
-  /* ================= CLOCK ================= */
-
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  /* ================= AUTH ================= */
-
-  const register = async () => {
-    try {
-      await createUserWithEmailAndPassword(auth, username, password);
-      setScreen("dashboard");
-      loadSchedules();
-    } catch (error) {
-      alert("Registration failed: " + (error as Error).message);
-    }
-  };
-
-  const login = async () => {
-    try {
-      await signInWithEmailAndPassword(auth, username, password);
-      setScreen("dashboard");
-      loadSchedules();
-    } catch (error) {
-      alert("Login failed: " + (error as Error).message);
-    }
-  };
-
-  /* ================= SCHEDULE DATABASE ================= */
-
-  const loadSchedules = async () => {
-    if (!auth.currentUser) return;
-
-    const q = query(
-      collection(db, "schedules"),
-      where("userId", "==", auth.currentUser.uid)
+    const [selectedGym, setSelectedGym] = useState(
+        gyms[0]?.name || ""
     );
 
-    const snapshot = await getDocs(q);
+    const [plannerExercises, setPlannerExercises] = useState<
+        PlannerExercise[]
+    >([]);
 
-    const userSchedules: Schedule[] = [];
+    const [time, setTime] = useState(new Date());
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      userSchedules.push({
-        id: doc.id,
-        name: data.name,
-      });
-    });
+    /* ================= CLOCK ================= */
 
-    setSchedules(userSchedules);
-  };
+    useEffect(() => {
+        const timer = setInterval(() => setTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
 
-  const createSchedule = async () => {
-    if (!auth.currentUser) return;
+    /* ================= AUTH ================= */
 
-    const newName = `Workout Plan ${schedules.length + 1}`;
+    const register = async () => {
+        try {
+            await createUserWithEmailAndPassword(auth, username, password);
+            setScreen("dashboard");
+            loadSchedules();
+        } catch (error) {
+            alert("Registration failed: " + (error as Error).message);
+        }
+    };
 
-    await addDoc(collection(db, "schedules"), {
-      userId: auth.currentUser.uid,
-      name: newName,
-    });
+    const login = async () => {
+        try {
+            await signInWithEmailAndPassword(auth, username, password);
+            setScreen("dashboard");
+            loadSchedules();
+        } catch (error) {
+            alert("Login failed: " + (error as Error).message);
+        }
+    };
 
-    loadSchedules();
-  };
+    /* ================= SCHEDULE DATABASE ================= */
 
-  const deleteSchedule = async (id: string) => {
-    if (!auth.currentUser) return;
+    const loadSchedules = async () => {
+        if (!auth.currentUser) return;
 
-    if (!window.confirm("Delete this schedule?")) return;
+        const q = query(
+            collection(db, "schedules"),
+            where("userId", "==", auth.currentUser.uid)
+        );
 
-    await deleteDoc(doc(db, "schedules", id));
+        const snapshot = await getDocs(q);
 
-    if (selectedSchedule?.id === id) {
-      setSelectedSchedule(null);
-      setPlannerExercises([]);
-    }
+        const userSchedules: Schedule[] = [];
 
-    loadSchedules();
-  };
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            userSchedules.push({
+                id: doc.id,
+                name: data.name,
+            });
+        });
 
-  const renameSchedule = async (id: string, newName: string) => {
-    if (!auth.currentUser || !newName.trim()) return;
+        setSchedules(userSchedules);
+    };
 
-    await updateDoc(doc(db, "schedules", id), {
-      name: newName.trim(),
-    });
+    const createSchedule = async () => {
+        if (!auth.currentUser) return;
 
-    loadSchedules();
-  };
+        const newName = `Workout Plan ${schedules.length + 1}`;
 
-  /* ================= EXERCISES DATABASE ================= */
+        await addDoc(collection(db, "schedules"), {
+            userId: auth.currentUser.uid,
+            name: newName,
+        });
 
-  const loadExercises = async (scheduleId: string) => {
-    const snapshot = await getDocs(
-      collection(db, "schedules", scheduleId, "exercises")
-    );
+        loadSchedules();
+    };
 
-    const loaded: PlannerExercise[] = [];
+    const deleteSchedule = async (id: string) => {
+        if (!auth.currentUser) return;
 
-    snapshot.forEach((docSnap) => {
-      const data = docSnap.data();
+        if (!window.confirm("Delete this schedule?")) return;
 
-      loaded.push({
-        id: docSnap.id,
-        name: data.name,
-        reps: data.reps,
-        sets: data.sets,
-        timer: data.timer,
-      });
-    });
+        await deleteDoc(doc(db, "schedules", id));
 
-    setPlannerExercises(loaded);
-  };
+        if (selectedSchedule?.id === id) {
+            setSelectedSchedule(null);
+            setPlannerExercises([]);
+        }
 
-  const addExercise = async (name: string) => {
-    if (!selectedSchedule) return;
+        loadSchedules();
+    };
 
-    if (plannerExercises.some((e) => e.name === name)) return;
+    const renameSchedule = async (id: string, newName: string) => {
+        if (!auth.currentUser || !newName.trim()) return;
 
-    const docRef = await addDoc(
-      collection(
-        db,
-        "schedules",
-        selectedSchedule.id,
-        "exercises"
-      ),
-      {
-        name,
-        reps: 10,
-        sets: 3,
-        timer: 0,
-      }
-    );
+        await updateDoc(doc(db, "schedules", id), {
+            name: newName.trim(),
+        });
 
-    setPlannerExercises((prev) => [
-      ...prev,
-      { id: docRef.id, name, reps: 10, sets: 3, timer: 0 },
-    ]);
-  };
+        loadSchedules();
+    };
+
+    /* ================= EXERCISES DATABASE ================= */
+
+    const loadExercises = async (scheduleId: string) => {
+        const snapshot = await getDocs(
+            collection(db, "schedules", scheduleId, "exercises")
+        );
+
+        const loaded: PlannerExercise[] = [];
+
+        snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+
+            loaded.push({
+                id: docSnap.id,
+                name: data.name,
+                reps: data.reps,
+                sets: data.sets,
+                timer: data.timer,
+            });
+        });
+
+        setPlannerExercises(loaded);
+    };
+
+    const addExercise = async (name: string) => {
+        try {
+            if (!selectedSchedule) return;
+
+            if (plannerExercises.some((e) => e.name === name)) return;
+
+            const docRef = await addDoc(
+                collection(db, "schedules", selectedSchedule.id, "exercises"),
+                {
+                    name,
+                    reps: 10,
+                    sets: 3,
+                    timer: 0,
+                }
+            );
+
+            setPlannerExercises((prev) => [
+                ...prev,
+                { id: docRef.id, name, reps: 10, sets: 3, timer: 0 },
+            ]);
+        } catch (err) {
+            console.error(err);
+            alert("Error adding exercise");
+        }
+    };
 
   const removeExercise = async (name: string) => {
     if (!selectedSchedule) return;
