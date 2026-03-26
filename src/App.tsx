@@ -21,7 +21,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 
-import { gyms } from "./gymData";
+import { gyms, type GymExercise } from "./gymData";
 
 /* ================= TYPES ================= */
 
@@ -57,7 +57,28 @@ function App() {
   const [plannerExercises, setPlannerExercises] = useState<PlannerExercise[]>([]);
   const [customExercise, setCustomExercise] = useState("");
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
+
   const [time, setTime] = useState(new Date());
+
+  /* ================= SCHEDULE FUNCTIONS ================= */
+  // Hoisted function declaration so it can be called from useEffect above without TDZ / no-use-before-define
+  async function loadSchedules(uid: string) {
+    const q = query(collection(db, "schedules"), where("userId", "==", uid));
+    const snapshot = await getDocs(q);
+
+    const list: Schedule[] = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data() as { name?: string };
+      return {
+        id: docSnap.id,
+        name: data.name ?? "Unnamed",
+      };
+    });
+
+    setSchedules(list);
+  }
 
   /* ================= CLOCK ================= */
   useEffect(() => {
@@ -72,9 +93,7 @@ function App() {
     const interval = setInterval(() => {
       setPlannerExercises((prev) =>
         prev.map((ex) =>
-          ex.isRunning && ex.timer > 0
-            ? { ...ex, timer: ex.timer - 1 }
-            : ex
+          ex.isRunning && ex.timer > 0 ? { ...ex, timer: ex.timer - 1 } : ex
         )
       );
     }, 1000);
@@ -112,19 +131,6 @@ function App() {
     } catch (error) {
       alert("Login failed: " + (error as Error).message);
     }
-  };
-
-  /* ================= SCHEDULE FUNCTIONS ================= */
-  const loadSchedules = async (uid: string) => {
-    const q = query(collection(db, "schedules"), where("userId", "==", uid));
-    const snapshot = await getDocs(q);
-
-    const list: Schedule[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      name: doc.data().name,
-    }));
-
-    setSchedules(list);
   };
 
   const createSchedule = async () => {
@@ -172,14 +178,14 @@ function App() {
     const snapshot = await getDocs(collection(db, "schedules", scheduleId, "exercises"));
 
     const loaded: PlannerExercise[] = snapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
+      const data = docSnap.data() as Partial<PlannerExercise>;
       return {
         id: docSnap.id,
-        name: data.name,
-        reps: data.reps,
-        sets: data.sets,
-        timer: data.timer || 60,
-        isRunning: data.isRunning || false,
+        name: data.name ?? "Unnamed",
+        reps: data.reps ?? 10,
+        sets: data.sets ?? 3,
+        timer: data.timer ?? 60,
+        isRunning: data.isRunning ?? false,
       };
     });
 
@@ -188,7 +194,6 @@ function App() {
 
   const addExercise = async (name: string) => {
     if (!selectedSchedule) return;
-    if (plannerExercises.some((e) => e.name === name)) return;
 
     const docRef = await addDoc(
       collection(db, "schedules", selectedSchedule.id, "exercises"),
@@ -207,6 +212,7 @@ function App() {
     setCustomExercise("");
   };
 
+  // Delete a single instance of the named exercise (first match)
   const removeExercise = async (name: string) => {
     if (!selectedSchedule) return;
 
@@ -216,6 +222,20 @@ function App() {
     await deleteDoc(doc(db, "schedules", selectedSchedule.id, "exercises", ex.id));
 
     setPlannerExercises((prev) => prev.filter((e) => e.id !== ex.id));
+  };
+
+  // Delete a specific instance by id
+  const removeExerciseById = async (id: string) => {
+    if (!selectedSchedule) return;
+    if (!window.confirm("Remove this workout instance from the schedule?")) return;
+
+    try {
+      await deleteDoc(doc(db, "schedules", selectedSchedule.id, "exercises", id));
+      setPlannerExercises((prev) => prev.filter((e) => e.id !== id));
+    } catch (err) {
+      console.error("Failed to remove exercise:", err);
+      alert("Failed to remove exercise.");
+    }
   };
 
   const updateExercise = async (
@@ -234,12 +254,37 @@ function App() {
 
   /* ================= UI HELPERS ================= */
   const currentGym = gyms.find((g) => g.name === selectedGym);
-  const groupedExercises =
-    currentGym?.exercises.reduce((acc: any, ex) => {
-      if (!acc[ex.muscle]) acc[ex.muscle] = [];
-      acc[ex.muscle].push(ex);
-      return acc;
-    }, {}) || {};
+  const allExercises: GymExercise[] = currentGym?.exercises ?? [];
+
+  // collect unique muscles (handles legacy `muscle` and `muscles` array)
+  const allMusclesSet = new Set<string>();
+  allExercises.forEach((ex) => {
+    const muscles = (ex as any).muscles ?? ((ex as any).muscle ? [(ex as any).muscle] : []);
+    muscles.forEach((m: string) => {
+      if (m && typeof m === "string") allMusclesSet.add(m);
+    });
+  });
+  const allMuscles = Array.from(allMusclesSet).sort((a, b) => a.localeCompare(b));
+
+  // filter + sort exercises: search, then muscle filter if any, then alphabetical
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const displayedExercises = allExercises
+    .filter((ex) => {
+      if (normalizedQuery) {
+        if (!ex.name.toLowerCase().includes(normalizedQuery)) return false;
+      }
+      if (selectedFilters.length > 0) {
+        const muscles = (ex as any).muscles ?? ((ex as any).muscle ? [(ex as any).muscle] : []);
+        const match = muscles.some((m: string) => selectedFilters.includes(m));
+        return match;
+      }
+      return true;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const toggleFilter = (muscle: string) => {
+    setSelectedFilters((prev) => (prev.includes(muscle) ? prev.filter((m) => m !== muscle) : [...prev, muscle]));
+  };
 
   /* ================= UI ================= */
   return (
@@ -254,8 +299,8 @@ function App() {
       {screen === "login" && (
         <div className="login-screen">
           <h1>EagleLift</h1>
-          <input placeholder="Email" onChange={(e) => setUsername(e.target.value)} />
-          <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} />
+          <input placeholder="Email" onChange={(e) => setUsername((e.target as HTMLInputElement).value)} />
+          <input type="password" placeholder="Password" onChange={(e) => setPassword((e.target as HTMLInputElement).value)} />
           <button onClick={login}>Login</button>
           <button onClick={() => setScreen("register")}>Register</button>
         </div>
@@ -265,8 +310,8 @@ function App() {
       {screen === "register" && (
         <div className="login-screen">
           <h1>Register</h1>
-          <input placeholder="Email" onChange={(e) => setUsername(e.target.value)} />
-          <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} />
+          <input placeholder="Email" onChange={(e) => setUsername((e.target as HTMLInputElement).value)} />
+          <input type="password" placeholder="Password" onChange={(e) => setPassword((e.target as HTMLInputElement).value)} />
           <button onClick={register}>Create Account</button>
           <button onClick={() => setScreen("login")}>Back</button>
         </div>
@@ -293,20 +338,21 @@ function App() {
           </div>
 
           {schedules.map((schedule) => (
-            <div key={schedule.id} className="schedule-card">
-              <div
-                onClick={() => {
-                  setSelectedSchedule(schedule);
-                  setScreen("planner");
-                  loadExercises(schedule.id);
-                }}
-              >
-                {schedule.name}
-              </div>
+            <div
+              key={schedule.id}
+              className="schedule-card"
+              onClick={() => {
+                setSelectedSchedule(schedule);
+                setScreen("planner");
+                loadExercises(schedule.id);
+              }}
+            >
+              <div className="schedule-name">{schedule.name}</div>
 
-              <div>
+              <div className="schedule-actions">
                 <span
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     const newName = prompt("Rename", schedule.name);
                     if (newName) renameSchedule(schedule.id, newName);
                   }}
@@ -314,7 +360,7 @@ function App() {
                   ✎
                 </span>
 
-                <button onClick={() => deleteSchedule(schedule.id)}>🗑</button>
+                <button onClick={(e) => { e.stopPropagation(); deleteSchedule(schedule.id); }}>🗑</button>
               </div>
             </div>
           ))}
@@ -347,7 +393,7 @@ function App() {
             <div className="planner-left">
               <h3>Select Gym</h3>
 
-              <select value={selectedGym} onChange={(e) => setSelectedGym(e.target.value)}>
+              <select value={selectedGym} onChange={(e) => setSelectedGym((e.target as HTMLSelectElement).value)}>
                 {gyms.map((g) => (
                   <option key={g.name} value={g.name}>
                     {g.name}
@@ -359,30 +405,72 @@ function App() {
                 <input
                   placeholder="Custom exercise..."
                   value={customExercise}
-                  onChange={(e) => setCustomExercise(e.target.value)}
+                  onChange={(e) => setCustomExercise((e.target as HTMLInputElement).value)}
                 />
-                <button onClick={addCustomExercise} style={{ marginTop: "6px" }}>
-                  Add
-                </button>
+                <button onClick={addCustomExercise} style={{ marginTop: "6px" }}>Add</button>
               </div>
 
-              {Object.entries(groupedExercises).map(([muscle, exercises]: any) => (
-                <div key={muscle}>
-                  <h4>{muscle}</h4>
-                  {exercises.map((ex: any) => (
-                    <label key={ex.name}>
-                      <input
-                        type="checkbox"
-                        checked={plannerExercises.some((e) => e.name === ex.name)}
-                        onChange={(e) =>
-                          e.target.checked ? addExercise(ex.name) : removeExercise(ex.name)
-                        }
-                      />
-                      {ex.name}
-                    </label>
-                  ))}
+              {/* Exercise box with search, filter and scroll */}
+              <div className="exercise-box">
+                <div className="filter-row">
+                  <input
+                    className="exercise-search"
+                    placeholder="Search workouts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
+                  />
+                  <button className="filter-btn" onClick={() => setFilterOpen((s) => !s)}>
+                    Filter {selectedFilters.length > 0 ? `(${selectedFilters.length})` : ""}
+                  </button>
                 </div>
-              ))}
+
+                {filterOpen && (
+                  <div className="filter-panel">
+                    {allMuscles.map((m) => {
+                      const selected = selectedFilters.includes(m);
+                      return (
+                        <button
+                          key={m}
+                          className={`muscle-chip ${selected ? "selected" : ""}`}
+                          type="button"
+                          onClick={() => toggleFilter(m)}
+                        >
+                          {m}
+                        </button>
+                      );
+                    })}
+                    <div style={{ marginTop: 8 }}>
+                      <button type="button" className="secondary" onClick={() => { setSelectedFilters([]); setFilterOpen(false); }}>
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="exercise-list">
+                  {displayedExercises.map((ex) => {
+                    const count = plannerExercises.filter((p) => p.name === ex.name).length;
+                    return (
+                      <div className="exercise-tile" key={ex.name}>
+                        <div className="exercise-info">
+                          <div className="exercise-name">{ex.name}</div>
+                          {count > 0 && <div className="exercise-count">{count}</div>}
+                        </div>
+
+                        <div className="exercise-actions">
+                          <button type="button" onClick={() => addExercise(ex.name)}>Add</button>
+                          {count > 0 && (
+                            <button type="button" className="secondary" onClick={() => removeExercise(ex.name)}>
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {displayedExercises.length === 0 && <div className="no-results">No workouts found.</div>}
+                </div>
+              </div>
             </div>
 
             <div className="planner-right">
@@ -407,7 +495,7 @@ function App() {
                         <input
                           type="number"
                           value={ex.reps}
-                          onChange={(e) => updateExercise(ex.id, "reps", Number(e.target.value))}
+                          onChange={(e) => updateExercise(ex.id, "reps", Number((e.target as HTMLInputElement).value))}
                         />
                       </td>
 
@@ -415,7 +503,7 @@ function App() {
                         <input
                           type="number"
                           value={ex.sets}
-                          onChange={(e) => updateExercise(ex.id, "sets", Number(e.target.value))}
+                          onChange={(e) => updateExercise(ex.id, "sets", Number((e.target as HTMLInputElement).value))}
                         />
                       </td>
 
@@ -431,13 +519,13 @@ function App() {
                           onChange={(e) =>
                             setPlannerExercises((prev) =>
                               prev.map((item) =>
-                                item.id === ex.id ? { ...item, timer: +e.target.value } : item
+                                item.id === ex.id ? { ...item, timer: +((e.target as HTMLInputElement).value) } : item
                               )
                             )
                           }
                         />
 
-                        <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
+                        <div style={{ display: "flex", gap: "6px", marginTop: "4px", alignItems: "center" }}>
                           <button
                             onClick={() =>
                               setPlannerExercises((prev) =>
@@ -460,6 +548,15 @@ function App() {
                             }
                           >
                             Reset
+                          </button>
+
+                          {/* Delete single instance button */}
+                          <button
+                            className="secondary"
+                            onClick={() => removeExerciseById(ex.id)}
+                            style={{ marginLeft: 0 }}
+                          >
+                            🗑
                           </button>
                         </div>
                       </td>
