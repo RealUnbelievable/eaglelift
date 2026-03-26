@@ -1,4 +1,4 @@
-/* =========================
+﻿/* =========================
    GLOBAL RESET
    ========================= */
 
@@ -417,33 +417,10 @@ button.secondary:hover {
   font-size: 16px;
 }
 
-/* Timer display - last column div at top */
-.planner-table tr > td:last-child > div:first-of-type {
+/* Timer display */
+.planner-table td > div:first-child {
   font-size: 18px;
   font-weight: 600;
-  margin-bottom: 8px;
-}
-
-/* Timer input */
-.planner-table tr > td:last-child > input {
-  display: block;
-  margin-bottom: 8px;
-}
-
-/* Timer controls: prevent button stretch and shift left */
-.planner-table tr > td:last-child > div:last-child {
-  display: flex;
-  align-items: flex-start;
-  height: fit-content;
-  justify-content: flex-start;
-  gap: 16px;
-}
-
-.planner-table button {
-  height: fit-content;
-  padding: 10px;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
 /* =========================

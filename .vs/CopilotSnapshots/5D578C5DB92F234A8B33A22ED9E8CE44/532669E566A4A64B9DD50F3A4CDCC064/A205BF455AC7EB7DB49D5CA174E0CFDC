@@ -1,4 +1,4 @@
-/* =========================
+﻿/* =========================
    BASE RESET FOR EAGLELIFT
    ========================= */
 
@@ -10,9 +10,9 @@ html, body, #root {
 /* Theme variables with light-mode defaults.
    Device preference (dark) overrides are applied below via prefers-color-scheme. */
 :root {
-  font-family: "Trebuchet MS", Trebuchet, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: "Trebuchet MS";
   line-height: 1.5;
-  font-weight: 1000;
+  font-weight: 400;
 
   /* LIGHT MODE PALETTE (defaults) */
   --color-bg: #f4f6fb;               /* light page background */
