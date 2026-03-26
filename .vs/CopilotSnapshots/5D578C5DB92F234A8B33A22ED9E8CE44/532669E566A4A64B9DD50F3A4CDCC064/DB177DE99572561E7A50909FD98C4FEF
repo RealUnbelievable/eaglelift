@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
 // Firebase
@@ -227,7 +227,7 @@ function App() {
       await addExercise(customExercise.trim());
       setCustomExercise("");
     } catch {
-      // addExercise already sets addError
+      // addExercise already sets addError; swallow here
     }
   };
 
@@ -619,41 +619,39 @@ function App() {
                           }
                         />
 
-                        <div style={{ display: "flex", alignItems: "center", marginTop: "4px", gap: "16px" }}>
-                          {/* Trash moved to the left and separated further from the Start/Reset group */}
+                        <div style={{ display: "flex", gap: "6px", marginTop: "4px", alignItems: "center" }}>
+                          <button
+                            onClick={() =>
+                              setPlannerExercises((prev) =>
+                                prev.map((item) =>
+                                  item.id === ex.id ? { ...item, isRunning: !item.isRunning } : item
+                                )
+                              )
+                            }
+                          >
+                            {ex.isRunning ? "Stop" : "Start"}
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              setPlannerExercises((prev) =>
+                                prev.map((item) =>
+                                  item.id === ex.id ? { ...item, timer: 0, isRunning: false } : item
+                                )
+                              )
+                            }
+                          >
+                            Reset
+                          </button>
+
+                          {/* Delete single instance button */}
                           <button
                             className="secondary"
                             onClick={() => removeExerciseById(ex.id)}
-                            aria-label="Delete exercise"
+                            style={{ marginLeft: 0 }}
                           >
                             🗑
                           </button>
-
-                          <div style={{ display: "flex", gap: "6px" }}>
-                            <button
-                              onClick={() =>
-                                setPlannerExercises((prev) =>
-                                  prev.map((item) =>
-                                    item.id === ex.id ? { ...item, isRunning: !item.isRunning } : item
-                                  )
-                                )
-                              }
-                            >
-                              {ex.isRunning ? "Stop" : "Start"}
-                            </button>
-
-                            <button
-                              onClick={() =>
-                                setPlannerExercises((prev) =>
-                                  prev.map((item) =>
-                                    item.id === ex.id ? { ...item, timer: 0, isRunning: false } : item
-                                  )
-                                )
-                              }
-                            >
-                              Reset
-                            </button>
-                          </div>
                         </div>
                       </td>
                     </tr>

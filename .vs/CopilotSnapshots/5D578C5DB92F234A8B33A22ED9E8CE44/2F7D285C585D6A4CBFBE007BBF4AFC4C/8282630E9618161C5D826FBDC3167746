@@ -1,4 +1,4 @@
-/* =========================
+﻿/* =========================
    BASE RESET FOR EAGLELIFT
    ========================= */
 
@@ -12,7 +12,7 @@ html, body, #root {
 :root {
   font-family: "Trebuchet MS", Trebuchet, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   line-height: 1.5;
-  font-weight: 1000;
+  font-weight: 400;
 
   /* LIGHT MODE PALETTE (defaults) */
   --color-bg: #f4f6fb;               /* light page background */
