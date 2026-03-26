@@ -395,6 +395,7 @@ button.secondary:hover {
   table-layout: fixed;
 }
 
+
 .planner-table th {
   text-align: left;
   padding: 12px;
@@ -529,4 +530,53 @@ button.secondary:hover {
 h1, h2, h3, h4 {
   font-weight: 600;
   letter-spacing: 0.5px;
+}
+
+/* =========================
+   WEEKLY PLANNER
+   ========================= */
+
+.day-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    background: var(--color-surface);
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(11,61,145,0.04);
+}
+
+.day-label {
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: 15px;
+}
+
+.day-select {
+    width: 180px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    color: var(--color-text);
+    outline: none;
+    font-size: 14px;
+}
+
+    .day-select:focus {
+        border-color: var(--color-accent);
+    }
+
+/* Make selectors adapt on mobile */
+@media (max-width: 600px) {
+    .day-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .day-select {
+        width: 100%;
+    }
 }
