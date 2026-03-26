@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
 // Firebase
@@ -632,7 +632,7 @@ function App() {
                                             </span>
                                         )
                                     })
-                                )}
+                                }
                             </div>
                         </div>
                     </div>
@@ -753,16 +753,16 @@ function App() {
                                         <tr key={ex.id}>
                                             <td>{ex.name}</td>
                                             <td>
-                                                <input type="number" value={ex.reps} onChange={(e) => { const val = Number((e.target as HTMLInputElement).value); if (val >= 0) updateExercise(ex.id, "reps", val); }} />
+                                                <input type="number" value={ex.reps} onChange={(e) => updateExercise(ex.id, "reps", Number((e.target as HTMLInputElement).value))} />
                                             </td>
                                             <td>
-                                                <input type="number" value={ex.sets} onChange={(e) => { const val = Number((e.target as HTMLInputElement).value); if (val >= 0) updateExercise(ex.id, "sets", val); }} />
+                                                <input type="number" value={ex.sets} onChange={(e) => updateExercise(ex.id, "sets", Number((e.target as HTMLInputElement).value))} />
                                             </td>
                                             <td>
                                                 <div>
                                                     {Math.floor(ex.timer / 60).toString().padStart(2, "0")}:{(ex.timer % 60).toString().padStart(2, "0")}
                                                 </div>
-                                                <input type="number" value={ex.timer} onChange={(e) => { const val = Number((e.target as HTMLInputElement).value); if (val >= 0) setPlannerExercises((prev) => prev.map((item) => item.id === ex.id ? { ...item, timer: val } : item)); }} />
+                                                <input type="number" value={ex.timer} onChange={(e) => setPlannerExercises((prev) => prev.map((item) => item.id === ex.id ? { ...item, timer: +((e.target as HTMLInputElement).value) } : item))} />
                                                 <div style={{ display: "flex", alignItems: "center", marginTop: "4px", gap: "16px" }}>
                                                     <button className="secondary" onClick={() => removeExerciseById(ex.id)} aria-label="Delete exercise">🗑</button>
                                                     <div style={{ display: "flex", gap: "6px" }}>

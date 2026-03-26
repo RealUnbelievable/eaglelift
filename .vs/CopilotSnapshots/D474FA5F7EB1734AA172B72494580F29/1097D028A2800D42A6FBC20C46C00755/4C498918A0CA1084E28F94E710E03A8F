@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
 // Firebase
@@ -632,7 +632,7 @@ function App() {
                                             </span>
                                         )
                                     })
-                                )}
+                                }
                             </div>
                         </div>
                     </div>
