@@ -20,7 +20,7 @@ body {
 
 .app {
   min-height: 100vh;
-  padding: 40px;
+  padding: 80px 40px 40px 40px;
 }
 
 /* =========================
@@ -98,6 +98,11 @@ button.secondary:hover {
   background: #cfdcc9;
 }
 
+.dashboard-header-buttons {
+  display: flex;
+  gap: 10px;
+}
+
 /* =========================
    DASHBOARD
    ========================= */
@@ -109,6 +114,7 @@ button.secondary:hover {
 
 .dashboard h1 {
   margin-bottom: 20px;
+  margin-top: 40px;
 }
 
 .schedule-card {
@@ -177,6 +183,7 @@ button.secondary:hover {
   font-size: 14px;
   margin-bottom: 6px;
   cursor: pointer;
+  margin-top: 10px;
 }
 
 /* RIGHT PANEL */
