@@ -580,3 +580,7 @@ h1, h2, h3, h4 {
         width: 100%;
     }
 }
+
+.planner-page {
+  margin-top: 60px; /* was 20px */
+}

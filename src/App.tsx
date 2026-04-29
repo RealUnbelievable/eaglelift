@@ -25,6 +25,8 @@ import {
 
 import { gyms, type GymExercise } from "./gymData";
 
+import WorkoutTimer from "./WorkoutTimer";
+
 /* ================= TYPES ================= */
 
 type Schedule = {
@@ -38,7 +40,6 @@ type PlannerExercise = {
     reps: number;
     sets: number;
     timer: number;
-    isRunning: boolean;
 };
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -139,17 +140,6 @@ function App() {
     }, []);
 
     /* ================= EXERCISE TIMER ================= */
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setPlannerExercises((prev) =>
-                prev.map((ex) =>
-                    ex.isRunning && ex.timer > 0 ? { ...ex, timer: ex.timer - 1 } : ex
-                )
-            );
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, []);
 
     /* ================= AUTH LISTENER ================= */
     useEffect(() => {
@@ -263,8 +253,7 @@ function App() {
                 name: data.name ?? "Unnamed",
                 reps: data.reps ?? 10,
                 sets: data.sets ?? 3,
-                timer: data.timer ?? 60,
-                isRunning: data.isRunning ?? false,
+                timer: data.timer ?? 60
             };
         });
 
@@ -283,10 +272,10 @@ function App() {
         try {
             const docRef = await addDoc(
                 collection(db, "schedules", selectedSchedule.id, "exercises"),
-                { name, reps: 10, sets: 3, timer: 60, isRunning: false }
+                { name, reps: 10, sets: 3, timer: 60 }
             );
 
-            const newEx = { id: docRef.id, name, reps: 10, sets: 3, timer: 60, isRunning: false };
+            const newEx = { id: docRef.id, name, reps: 10, sets: 3, timer: 60 };
 
             setPlannerExercises((prev) => [...prev, newEx]);
 
@@ -758,21 +747,24 @@ function App() {
                                             <td>
                                                 <input type="number" value={ex.sets} onChange={(e) => { const val = Number((e.target as HTMLInputElement).value); if (val >= 0) updateExercise(ex.id, "sets", val); }} />
                                             </td>
-                                            <td>
-                                                <div>
-                                                    {Math.floor(ex.timer / 60).toString().padStart(2, "0")}:{(ex.timer % 60).toString().padStart(2, "0")}
-                                                </div>
-                                                <input type="number" value={ex.timer} onChange={(e) => { const val = Number((e.target as HTMLInputElement).value); if (val >= 0) setPlannerExercises((prev) => prev.map((item) => item.id === ex.id ? { ...item, timer: val } : item)); }} />
-                                                <div style={{ display: "flex", alignItems: "center", marginTop: "4px", gap: "16px" }}>
-                                                    <button className="secondary" onClick={() => removeExerciseById(ex.id)} aria-label="Delete exercise">🗑</button>
-                                                    <div style={{ display: "flex", gap: "6px" }}>
-                                                        <button onClick={() => setPlannerExercises((prev) => prev.map((item) => item.id === ex.id ? { ...item, isRunning: !item.isRunning } : item))}>
-                                                            {ex.isRunning ? "Stop" : "Start"}
-                                                        </button>
-                                                        <button onClick={() => setPlannerExercises((prev) => prev.map((item) => item.id === ex.id ? { ...item, timer: 0, isRunning: false } : item))}>
-                                                            Reset
-                                                        </button>
-                                                    </div>
+                                            <td style={{ minWidth: 220 }}>
+                                                <WorkoutTimer
+                                                    exerciseId={ex.id}
+                                                    exerciseName={ex.name}
+                                                    sets={ex.sets}
+                                                    workSeconds={ex.timer}
+                                                    onWorkSecondsChange={(val) =>
+                                                        updateExercise(ex.id, "timer", val)
+                                                    }
+                                                />
+                                                <div style={{ marginTop: 8 }}>
+                                                    <button
+                                                        className="secondary"
+                                                        onClick={() => removeExerciseById(ex.id)}
+                                                        aria-label="Delete exercise"
+                                                    >
+                                                        🗑
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
