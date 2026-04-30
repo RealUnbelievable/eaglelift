@@ -48,49 +48,49 @@ export default function WorkoutTimer({
 
   // ===== TIMER LOOP =====
   useEffect(() => {
-  if (!isRunning) return;
+    if (!isRunning) return;
 
-  const interval = setInterval(() => {
-    setTimeLeft((prev) => {
-      if (prev <= 1) {
-        playSound();
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          playSound();
 
-        // ===== WORK PHASE =====
-        if (phase === "work") {
-          if (currentSet === sets) {
-            // FINAL SET COMPLETED
-            setPhase("done");
-            setIsRunning(false);
-            return 0;
+          // ===== WORK PHASE =====
+          if (phase === "work") {
+            if (currentSet === sets) {
+              // FINAL SET COMPLETED
+              setPhase("done");
+              setIsRunning(false);
+              return 0;
+            }
+
+            // go to rest
+            setPhase("rest");
+            return restSeconds;
           }
 
-          // go to rest
-          setPhase("rest");
-          return restSeconds;
-        }
-
-        // ===== REST PHASE =====
-        if (phase === "rest") {
-          // ONLY increment if not exceeding sets
-          if (currentSet < sets) {
-            setCurrentSet((s) => s + 1);
-            setPhase("work");
-            return workSeconds;
-          } else {
-            // safety fallback
-            setPhase("done");
-            setIsRunning(false);
-            return 0;
+          // ===== REST PHASE =====
+          if (phase === "rest") {
+            // ONLY increment if not exceeding sets
+            if (currentSet < sets) {
+              setCurrentSet((s) => s + 1);
+              setPhase("work");
+              return workSeconds;
+            } else {
+              // safety fallback
+              setPhase("done");
+              setIsRunning(false);
+              return 0;
+            }
           }
         }
-      }
 
-      return prev - 1;
-    });
-  }, 1000);
+        return prev - 1;
+      });
+    }, 1000);
 
-  return () => clearInterval(interval);
-}, [isRunning, phase, currentSet, sets, restSeconds, workSeconds, soundType]);
+    return () => clearInterval(interval);
+  }, [isRunning, phase, currentSet, sets, restSeconds, workSeconds, soundType]);
   // Sync when user edits work time
   useEffect(() => {
     if (phase === "idle") setTimeLeft(workSeconds);
@@ -197,16 +197,30 @@ export default function WorkoutTimer({
         </select>
 
         {soundType !== "beep" && (
-          <input
-            type="file"
-            accept="audio/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                audioRef.current = new Audio(URL.createObjectURL(file));
-              }
+          <label
+            title="Upload audio file"
+            style={{
+              cursor: "pointer",
+              fontSize: 18,
+              marginLeft: 6,
+              userSelect: "none",
+              display: "inline-flex",
+              alignItems: "center",
             }}
-          />
+          >
+            🎵
+            <input
+              type="file"
+              accept="audio/*"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  audioRef.current = new Audio(URL.createObjectURL(file));
+                }
+              }}
+            />
+          </label>
         )}
       </div>
 

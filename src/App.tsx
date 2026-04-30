@@ -670,6 +670,25 @@ function App() {
                                     Add
                                 </button>
                             </div>
+                          
+                            <div style={{ marginBottom: "12px" }}>
+                                <button
+                                    className="secondary"
+                                    style={{ width: "100%" }}
+                                    onClick={async () => {
+                                        if (!selectedSchedule) return;
+                                        if (!window.confirm("Remove all exercises from this plan?")) return;
+                                        for (const ex of plannerExercises) {
+                                            await deleteDoc(doc(db, "schedules", selectedSchedule.id, "exercises", ex.id));
+                                        }
+                                        setPlannerExercises([]);
+                                        setScheduleExercisesCache(prev => ({ ...prev, [selectedSchedule.id]: [] }));
+                                    }}
+                                >
+                                    🗑 Clear All Workouts
+                                </button>
+                            </div>
+
 
                             <div className="exercise-box">
                                 <div className="filter-row">
