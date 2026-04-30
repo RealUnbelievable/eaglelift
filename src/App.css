@@ -570,17 +570,88 @@ h1, h2, h3, h4 {
 
 /* Make selectors adapt on mobile */
 @media (max-width: 600px) {
+    .clock {
+        position: relative;
+        top: auto;
+        left: auto;
+        transform: none;
+        text-align: center;
+        margin: 8px auto;
+        font-size: 18px;
+        pointer-events: none;
+    }
+
+        .clock .date {
+            font-size: 14px;
+        }
+
+    .app {
+        padding: calc(20px + env(safe-area-inset-top)) 16px 16px;
+    }
+
+    .login-screen {
+        margin: 20px auto;
+        padding: 20px;
+    }
+
+    .exercise-tile {
+        padding: 12px;
+    }
+
+    .exercise-actions button {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+
+    .filter-panel {
+        gap: 6px;
+    }
+
+    /* --- NEW FIXES FOR THE TIMER TABLE --- */
+
+    /* 1. Reduce table padding and font size so columns can breathe */
+    .planner-table th,
+    .planner-table td {
+        padding: 8px 4px;
+        font-size: 14px;
+    }
+
+    /* 2. Shrink inputs further */
+    .planner-table input {
+        width: 45px;
+        padding: 6px 2px;
+    }
+
+    /* 3. OVERRIDE inline flex styles to stack the timer controls vertically */
+    .planner-table tr > td:last-child > div:last-of-type {
+        flex-direction: column !important;
+        align-items: stretch !important; /* Makes buttons span the column */
+        gap: 8px !important;
+    }
+
+        /* 4. Ensure the inner Start/Reset button container wraps if needed */
+        .planner-table tr > td:last-child > div:last-of-type > div {
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+        }
+
+    /* 5. Make buttons slightly smaller on mobile to save space */
+    .planner-table button {
+        padding: 8px;
+        font-size: 13px;
+        width: 100%; /* Stretch buttons so they are easy to tap */
+    }
+
+    /* --- NEW FIX FOR "CHOOSE" DROPDOWNS --- */
     .day-row {
         flex-direction: column;
         align-items: flex-start;
         gap: 8px;
+        padding: 12px; /* Slight padding reduction */
     }
 
     .day-select {
         width: 100%;
+        max-width: 100%;
+        box-sizing: border-box; /* Forces padding to stay within width constraints */
     }
-}
-
-.planner-page {
-  margin-top: 60px; /* was 20px */
-}
