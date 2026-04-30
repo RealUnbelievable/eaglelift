@@ -30,8 +30,22 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 2,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "App.tsx",
+              "DocumentMoniker": "C:\\Users\\ryant\\eaglelift\\src\\App.tsx",
+              "RelativeDocumentMoniker": "src\\App.tsx",
+              "ToolTip": "C:\\Users\\ryant\\eaglelift\\src\\App.tsx",
+              "RelativeToolTip": "src\\App.tsx",
+              "ViewState": "AgIAAJ4DAAAAAAAAAAAIwL0DAAATAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2026-02-11T22:16:13.204Z",
+              "IsPinned": true,
+              "EditorCaption": ""
+            },
             {
               "$type": "Document",
               "DocumentIndex": 4,
@@ -52,7 +66,7 @@
               "RelativeDocumentMoniker": "src\\App.css",
               "ToolTip": "C:\\Users\\ryant\\eaglelift\\src\\App.css",
               "RelativeToolTip": "src\\App.css",
-              "ViewState": "AgIAAEsCAAAAAAAAAAAmwJACAAAFAAAAAAAAAA==",
+              "ViewState": "AgIAAH4CAAAAAAAAAAAswJ8CAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003000|",
               "WhenOpened": "2026-03-26T08:58:32.093Z",
               "EditorCaption": ""
@@ -71,19 +85,6 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "App.tsx",
-              "DocumentMoniker": "C:\\Users\\ryant\\eaglelift\\src\\App.tsx",
-              "RelativeDocumentMoniker": "src\\App.tsx",
-              "ToolTip": "C:\\Users\\ryant\\eaglelift\\src\\App.tsx",
-              "RelativeToolTip": "src\\App.tsx",
-              "ViewState": "AgIAAHACAAAAAAAAAAAMwKkBAAAYAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
-              "WhenOpened": "2026-02-11T22:16:13.204Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
               "DocumentIndex": 2,
               "Title": "firebase.ts",
               "DocumentMoniker": "C:\\Users\\ryant\\eaglelift\\src\\firebase.ts",
@@ -92,8 +93,7 @@
               "RelativeToolTip": "src\\firebase.ts",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
-              "WhenOpened": "2026-02-11T22:13:41.311Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-02-11T22:13:41.311Z"
             }
           ]
         }
