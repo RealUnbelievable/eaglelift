@@ -25,6 +25,8 @@ import {
 
 import { gyms, type GymExercise } from "./gymData";
 
+import WorkoutTimer from "./WorkoutTimer";
+
 /* ================= TYPES ================= */
 
 type Schedule = {
@@ -38,7 +40,6 @@ type PlannerExercise = {
     reps: number;
     sets: number;
     timer: number;
-    isRunning: boolean;
     muscle?: string;
 };
 
@@ -163,21 +164,10 @@ function App() {
         }
     };
 
-    /* ================= CLOCK & TIMER ================= */
+    /* ================= CLOCK ================= */
     useEffect(() => {
         const timer = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(timer);
-    }, []);
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setPlannerExercises((prev) =>
-                prev.map((ex) =>
-                    ex.isRunning && ex.timer > 0 ? { ...ex, timer: ex.timer - 1 } : ex
-                )
-            );
-        }, 1000);
-        return () => clearInterval(interval);
     }, []);
 
     /* ================= AUTH LISTENER ================= */
@@ -349,7 +339,6 @@ function App() {
                 reps: typeof data.reps === "number" ? data.reps : 10,
                 sets: typeof data.sets === "number" ? data.sets : 3,
                 timer: typeof data.timer === "number" ? data.timer : 60,
-                isRunning: typeof data.isRunning === "boolean" ? data.isRunning : false,
                 muscle: (data.muscle as string) || undefined,
             };
         });
@@ -376,8 +365,7 @@ function App() {
                 name: name || "Unnamed",
                 reps: 10,
                 sets: 3,
-                timer: 60,
-                isRunning: false
+                timer: 60
             };
 
             // Only attach muscle if it is a valid truthy string
@@ -396,7 +384,6 @@ function App() {
                 reps: exerciseData.reps,
                 sets: exerciseData.sets,
                 timer: exerciseData.timer,
-                isRunning: exerciseData.isRunning,
                 muscle: exerciseData.muscle
             };
 
@@ -926,21 +913,24 @@ function App() {
                                             <td>
                                                 <input type="number" value={ex.sets} onChange={(e) => { const val = Number((e.target as HTMLInputElement).value); if (!isNaN(val) && val >= 0) updateExercise(ex.id, "sets", val); }} />
                                             </td>
-                                            <td>
-                                                <div>
-                                                    {Math.floor(ex.timer / 60).toString().padStart(2, "0")}:{(ex.timer % 60).toString().padStart(2, "0")}
-                                                </div>
-                                                <input type="number" value={ex.timer} onChange={(e) => { const val = Number((e.target as HTMLInputElement).value); if (!isNaN(val) && val >= 0) setPlannerExercises((prev) => prev.map((item) => item.id === ex.id ? { ...item, timer: val } : item)); }} />
-                                                <div style={{ display: "flex", alignItems: "center", marginTop: "4px", gap: "16px" }}>
-                                                    <button className="secondary" onClick={() => removeExerciseById(ex.id)} aria-label="Delete exercise">🗑</button>
-                                                    <div style={{ display: "flex", gap: "6px" }}>
-                                                        <button onClick={() => setPlannerExercises((prev) => prev.map((item) => item.id === ex.id ? { ...item, isRunning: !item.isRunning } : item))}>
-                                                            {ex.isRunning ? "Stop" : "Start"}
-                                                        </button>
-                                                        <button onClick={() => setPlannerExercises((prev) => prev.map((item) => item.id === ex.id ? { ...item, timer: 0, isRunning: false } : item))}>
-                                                            Reset
-                                                        </button>
-                                                    </div>
+                                            <td style={{ minWidth: 220 }}>
+                                                <WorkoutTimer
+                                                    exerciseId={ex.id}
+                                                    exerciseName={ex.name}
+                                                    sets={ex.sets}
+                                                    workSeconds={ex.timer}
+                                                    onWorkSecondsChange={(val) =>
+                                                        updateExercise(ex.id, "timer", val)
+                                                    }
+                                                />
+                                                <div style={{ marginTop: 8 }}>
+                                                    <button
+                                                        className="secondary"
+                                                        onClick={() => removeExerciseById(ex.id)}
+                                                        aria-label="Delete exercise"
+                                                    >
+                                                        🗑
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
