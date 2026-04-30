@@ -25,8 +25,6 @@ import {
 
 import { gyms, type GymExercise } from "./gymData";
 
-import WorkoutTimer from "./WorkoutTimer";
-
 /* ================= TYPES ================= */
 
 type Schedule = {
@@ -40,24 +38,43 @@ type PlannerExercise = {
     reps: number;
     sets: number;
     timer: number;
+    isRunning: boolean;
+    muscle?: string;
+};
+
+// Extended type to resolve 'any' warnings from potentially varying gymData formats
+type ExtendedExercise = GymExercise & {
+    muscles?: string[];
+    muscle?: string;
 };
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+// A guaranteed clean starting state for the planner
+const defaultPlan: Record<string, string> = {
+    Monday: "", Tuesday: "", Wednesday: "", Thursday: "", Friday: "", Saturday: "", Sunday: ""
+};
 
 /* ================= PRE-COMPUTE MUSCLE MAP ================= */
 // Create a quick lookup dictionary for exercise names -> muscles
 const exerciseMuscleMap: Record<string, string[]> = {};
 gyms.forEach((gym) => {
     gym.exercises.forEach((ex) => {
-        const muscles = (ex as any).muscles ?? ((ex as any).muscle ? [(ex as any).muscle] : []);
-        exerciseMuscleMap[ex.name] = muscles;
+        const extEx = ex as ExtendedExercise;
+        const muscles = extEx.muscles ?? (extEx.muscle ? [extEx.muscle] : []);
+        exerciseMuscleMap[extEx.name] = muscles;
     });
 });
+
+// A complete list of all distinct muscles across all gyms for the custom dropdown
+const globalMuscles = Array.from(
+    new Set(Object.values(exerciseMuscleMap).flat())
+).sort((a, b) => a.localeCompare(b));
 
 /* ================= APP ================= */
 
 function App() {
-    const [screen, setScreen] = useState<"login" | "register" | "dashboard" | "planner" | "weekly">("login");
+    const [screen, setScreen] = useState<"login" | "register" | "welcome" | "dashboard" | "planner" | "weekly">("login");
 
     const [user, setUser] = useState<User | null>(null);
 
@@ -71,6 +88,7 @@ function App() {
 
     const [plannerExercises, setPlannerExercises] = useState<PlannerExercise[]>([]);
     const [customExercise, setCustomExercise] = useState("");
+    const [customMuscle, setCustomMuscle] = useState("");
 
     const [searchQuery, setSearchQuery] = useState("");
     const [filterOpen, setFilterOpen] = useState(false);
@@ -78,15 +96,15 @@ function App() {
 
     const [time, setTime] = useState(new Date());
 
-    // Error state for add actions
     const [addError, setAddError] = useState<string | null>(null);
-
-    // Prevent double-firing on touch devices: track recent touch-add
     const touchAddRef = useRef(false);
 
+    // Tracks if the user JUST created their account so we can show the welcome screen
+    const isNewUserRef = useRef(false);
+
     // --- WEEKLY PLAN STATE ---
-    const [weeklyPlan, setWeeklyPlan] = useState<Record<string, string>>({});
-    const [scheduleExercisesCache, setScheduleExercisesCache] = useState<Record<string, string[]>>({});
+    const [weeklyPlan, setWeeklyPlan] = useState<Record<string, string>>(defaultPlan);
+    const [scheduleExercisesCache, setScheduleExercisesCache] = useState<Record<string, { name: string, muscle?: string }[]>>({});
 
     /* ================= DATA LOADING FUNCTIONS ================= */
 
@@ -95,10 +113,10 @@ function App() {
         const snapshot = await getDocs(q);
 
         const list: Schedule[] = snapshot.docs.map((docSnap) => {
-            const data = docSnap.data() as { name?: string };
+            const data = docSnap.data();
             return {
                 id: docSnap.id,
-                name: data.name ?? "Unnamed",
+                name: (data.name as string) || "Unnamed",
             };
         });
 
@@ -106,62 +124,92 @@ function App() {
     }
 
     const loadScheduleCache = async (scheduleId: string) => {
-        // Prevent re-fetching if we already have it
         if (scheduleExercisesCache[scheduleId]) return;
 
         const snapshot = await getDocs(collection(db, "schedules", scheduleId, "exercises"));
-        const names = snapshot.docs.map(d => d.data().name as string);
+        const exercisesData = snapshot.docs.map(d => ({
+            name: (d.data().name as string) || "Unnamed",
+            muscle: (d.data().muscle as string) || undefined
+        }));
 
-        setScheduleExercisesCache(prev => ({ ...prev, [scheduleId]: names }));
+        setScheduleExercisesCache(prev => ({ ...prev, [scheduleId]: exercisesData }));
     };
 
     const loadWeeklyPlan = async (uid: string) => {
-        const docRef = doc(db, "weekly_plans", uid);
-        const snap = await getDoc(docRef);
+        try {
+            const docRef = doc(db, "weekly_plans", uid);
+            const snap = await getDoc(docRef);
 
-        if (snap.exists()) {
-            const plan = snap.data() as Record<string, string>;
-            setWeeklyPlan(plan);
+            const fullPlan: Record<string, string> = { ...defaultPlan };
 
-            // Preload exercise caches for all assigned schedules to calculate muscles
-            const assignedScheduleIds = Array.from(new Set(Object.values(plan).filter(id => id !== "")));
+            if (snap.exists()) {
+                const planData = snap.data();
+                // Strictly hydrate only valid string entries
+                DAYS_OF_WEEK.forEach(day => {
+                    if (typeof planData[day] === "string") {
+                        fullPlan[day] = planData[day];
+                    }
+                });
+            }
+
+            setWeeklyPlan(fullPlan);
+
+            // Preload caches
+            const assignedScheduleIds = Array.from(new Set(Object.values(fullPlan).filter(id => id !== "")));
             assignedScheduleIds.forEach(id => loadScheduleCache(id));
-        } else {
-            setWeeklyPlan({ Monday: "", Tuesday: "", Wednesday: "", Thursday: "", Friday: "", Saturday: "", Sunday: "" });
+        } catch (err) {
+            console.error("Failed to load weekly plan:", err);
+            setWeeklyPlan(defaultPlan);
         }
     };
 
-    /* ================= CLOCK ================= */
+    /* ================= CLOCK & TIMER ================= */
     useEffect(() => {
-        const timer = setInterval(() => {
-            setTime(new Date());
-        }, 1000);
+        const timer = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
-    /* ================= EXERCISE TIMER ================= */
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setPlannerExercises((prev) =>
+                prev.map((ex) =>
+                    ex.isRunning && ex.timer > 0 ? { ...ex, timer: ex.timer - 1 } : ex
+                )
+            );
+        }, 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     /* ================= AUTH LISTENER ================= */
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (u) => {
             if (u) {
                 setUser(u);
-                setScreen("dashboard");
+
+                // Show Welcome screen if they just registered, otherwise go straight to dashboard
+                if (isNewUserRef.current) {
+                    setScreen("welcome");
+                    isNewUserRef.current = false; // Reset it
+                } else {
+                    setScreen("dashboard");
+                }
+
                 loadSchedules(u.uid);
                 loadWeeklyPlan(u.uid);
             } else {
                 setUser(null);
             }
         });
-
         return () => unsubscribe();
     }, []);
 
     /* ================= AUTH FUNCTIONS ================= */
     const register = async () => {
         try {
+            isNewUserRef.current = true; // Flag them as a new user
             await createUserWithEmailAndPassword(auth, username, password);
         } catch (error) {
+            isNewUserRef.current = false;
             alert("Registration failed: " + (error as Error).message);
         }
     };
@@ -177,16 +225,34 @@ function App() {
     /* ================= SCHEDULE FUNCTIONS ================= */
     const createSchedule = async () => {
         if (!user) {
-            alert("Wait a second, user not ready");
+            alert("User not ready");
+            return;
+        }
+
+        if (schedules.length >= 15) {
+            alert("Limit reached: You can only have up to 15 schedules.");
+            return;
+        }
+
+        const namePrompt = prompt("Enter a name for your new schedule:", `Workout Plan ${schedules.length + 1}`);
+        if (namePrompt === null) return;
+
+        const trimmedName = namePrompt.trim();
+        if (!trimmedName) {
+            alert("Schedule name cannot be empty.");
+            return;
+        }
+
+        if (trimmedName.length > 30) {
+            alert("Schedule name must be 30 characters or less.");
             return;
         }
 
         try {
             await addDoc(collection(db, "schedules"), {
                 userId: user.uid,
-                name: `Workout Plan ${schedules.length + 1}`,
+                name: trimmedName,
             });
-
             loadSchedules(user.uid);
         } catch (err) {
             console.error(err);
@@ -205,40 +271,69 @@ function App() {
             setPlannerExercises([]);
         }
 
-        // Optional: remove it from the weekly plan if deleted
-        const updatedPlan = { ...weeklyPlan };
+        // Clean out from weekly plan and sync safely
         let planChanged = false;
-        Object.keys(updatedPlan).forEach(day => {
-            if (updatedPlan[day] === id) {
-                updatedPlan[day] = "";
+        const cleanPlan: Record<string, string> = { ...defaultPlan };
+
+        DAYS_OF_WEEK.forEach(day => {
+            if (weeklyPlan[day] === id) {
+                cleanPlan[day] = "";
                 planChanged = true;
+            } else {
+                cleanPlan[day] = weeklyPlan[day] || "";
             }
         });
 
         if (planChanged) {
-            setWeeklyPlan(updatedPlan);
-            await setDoc(doc(db, "weekly_plans", user.uid), updatedPlan, { merge: true });
+            setWeeklyPlan(cleanPlan);
+            try {
+                // Save fully cleaned object
+                await setDoc(doc(db, "weekly_plans", user.uid), cleanPlan);
+            } catch (err) {
+                console.error("Failed to update weekly plan after deletion", err);
+            }
         }
 
         loadSchedules(user.uid);
     };
 
     const renameSchedule = async (id: string, newName: string) => {
-        if (!user || !newName.trim()) return;
-
-        await updateDoc(doc(db, "schedules", id), { name: newName.trim() });
+        if (!user) return;
+        const trimmed = newName.trim();
+        if (!trimmed) {
+            alert("Schedule name cannot be empty.");
+            return;
+        }
+        if (trimmed.length > 30) {
+            alert("Schedule name must be 30 characters or less.");
+            return;
+        }
+        await updateDoc(doc(db, "schedules", id), { name: trimmed });
         loadSchedules(user.uid);
     };
 
     const updateWeeklyDay = async (day: string, scheduleId: string) => {
         if (!user) return;
 
-        const newPlan = { ...weeklyPlan, [day]: scheduleId };
-        setWeeklyPlan(newPlan);
+        // Force rigorous sanitization of the weekly plan to prevent undefined values
+        const cleanPlan: Record<string, string> = { ...defaultPlan };
+        DAYS_OF_WEEK.forEach(d => {
+            cleanPlan[d] = (typeof weeklyPlan[d] === "string" && weeklyPlan[d]) ? weeklyPlan[d] : "";
+        });
 
-        await setDoc(doc(db, "weekly_plans", user.uid), newPlan, { merge: true });
+        // Set the new schedule for the selected day
+        cleanPlan[day] = typeof scheduleId === "string" ? scheduleId : "";
 
-        // Ensure we have the exercises cached for the newly selected schedule
+        setWeeklyPlan(cleanPlan);
+
+        try {
+            // Overwrite the entire document safely
+            await setDoc(doc(db, "weekly_plans", user.uid), cleanPlan);
+        } catch (error) {
+            console.error("Firebase Weekly Planner Error:", error);
+            alert("Failed to save weekly planner. Please check your connection.");
+        }
+
         if (scheduleId) loadScheduleCache(scheduleId);
     };
 
@@ -247,57 +342,91 @@ function App() {
         const snapshot = await getDocs(collection(db, "schedules", scheduleId, "exercises"));
 
         const loaded: PlannerExercise[] = snapshot.docs.map((docSnap) => {
-            const data = docSnap.data() as Partial<PlannerExercise>;
+            const data = docSnap.data();
             return {
                 id: docSnap.id,
-                name: data.name ?? "Unnamed",
-                reps: data.reps ?? 10,
-                sets: data.sets ?? 3,
-                timer: data.timer ?? 60
+                name: (data.name as string) || "Unnamed",
+                reps: typeof data.reps === "number" ? data.reps : 10,
+                sets: typeof data.sets === "number" ? data.sets : 3,
+                timer: typeof data.timer === "number" ? data.timer : 60,
+                isRunning: typeof data.isRunning === "boolean" ? data.isRunning : false,
+                muscle: (data.muscle as string) || undefined,
             };
         });
 
         setPlannerExercises(loaded);
 
-        // Update cache while we're here
         setScheduleExercisesCache(prev => ({
             ...prev,
-            [scheduleId]: loaded.map(ex => ex.name)
+            [scheduleId]: loaded.map(ex => ({ name: ex.name, muscle: ex.muscle }))
         }));
     };
 
-    const addExercise = async (name: string) => {
+    const addExercise = async (name: string, muscle?: string) => {
         if (!selectedSchedule) return;
 
+        if (plannerExercises.length >= 15) {
+            alert("Limit reached: You can only have up to 15 workouts per schedule.");
+            return;
+        }
+
         try {
+            // Strictly define payload without relying on conditional spreads
+            const exerciseData: Record<string, any> = {
+                name: name || "Unnamed",
+                reps: 10,
+                sets: 3,
+                timer: 60,
+                isRunning: false
+            };
+
+            // Only attach muscle if it is a valid truthy string
+            if (typeof muscle === "string" && muscle.trim() !== "") {
+                exerciseData.muscle = muscle;
+            }
+
             const docRef = await addDoc(
                 collection(db, "schedules", selectedSchedule.id, "exercises"),
-                { name, reps: 10, sets: 3, timer: 60 }
+                exerciseData
             );
 
-            const newEx = { id: docRef.id, name, reps: 10, sets: 3, timer: 60 };
+            const newEx: PlannerExercise = {
+                id: docRef.id,
+                name: exerciseData.name,
+                reps: exerciseData.reps,
+                sets: exerciseData.sets,
+                timer: exerciseData.timer,
+                isRunning: exerciseData.isRunning,
+                muscle: exerciseData.muscle
+            };
 
             setPlannerExercises((prev) => [...prev, newEx]);
 
-            // Update Cache
             setScheduleExercisesCache(prev => ({
                 ...prev,
-                [selectedSchedule.id]: [...(prev[selectedSchedule.id] || []), name]
+                [selectedSchedule.id]: [...(prev[selectedSchedule.id] || []), { name: exerciseData.name, muscle: exerciseData.muscle }]
             }));
         } catch (err) {
-            console.error("Failed to add exercise:", err);
+            console.error("Firebase Exercise Add Error:", err);
             const msg = err instanceof Error ? err.message : String(err);
-            setAddError("Failed to add workout. " + msg + " (Try again or check your network.)");
+            setAddError("Failed to add workout: " + msg);
             setTimeout(() => setAddError(null), 6000);
-            throw err;
         }
     };
 
     const addCustomExercise = async () => {
-        if (!customExercise.trim()) return;
+        const name = customExercise.trim();
+        if (!name) return;
+
+        if (name.length > 30) {
+            alert("Workout name must be 30 characters or less.");
+            return;
+        }
+
         try {
-            await addExercise(customExercise.trim());
+            await addExercise(name, customMuscle || undefined);
             setCustomExercise("");
+            setCustomMuscle("");
         } catch { /* empty */ }
     };
 
@@ -311,10 +440,9 @@ function App() {
 
         setPlannerExercises((prev) => prev.filter((e) => e.id !== ex.id));
 
-        // Update Cache
         setScheduleExercisesCache(prev => {
             const currentCache = prev[selectedSchedule.id] || [];
-            const index = currentCache.indexOf(name);
+            const index = currentCache.findIndex(e => e.name === name);
             if (index > -1) {
                 const newCache = [...currentCache];
                 newCache.splice(index, 1);
@@ -334,11 +462,10 @@ function App() {
 
             setPlannerExercises((prev) => prev.filter((e) => e.id !== id));
 
-            // Update Cache
             if (exToRemove) {
                 setScheduleExercisesCache(prev => {
                     const currentCache = prev[selectedSchedule.id] || [];
-                    const index = currentCache.indexOf(exToRemove.name);
+                    const index = currentCache.findIndex(e => e.name === exToRemove.name);
                     if (index > -1) {
                         const newCache = [...currentCache];
                         newCache.splice(index, 1);
@@ -355,47 +482,45 @@ function App() {
 
     const updateExercise = async (
         id: string,
-        field: keyof Omit<PlannerExercise, "id" | "name">,
+        field: keyof Omit<PlannerExercise, "id" | "name" | "muscle">,
         value: number
     ) => {
         if (!selectedSchedule) return;
 
-        // Prevent negative values for reps, sets, and timer
-        if ((field === "reps" || field === "sets" || field === "timer") && value < 0) {
-            return;
+        // Firebase strictly rejects NaN (Not a Number), catch it early
+        if (isNaN(value)) return;
+        if ((field === "reps" || field === "sets" || field === "timer") && value < 0) return;
+
+        try {
+            await updateDoc(doc(db, "schedules", selectedSchedule.id, "exercises", id), { [field]: value });
+            setPlannerExercises((prev) =>
+                prev.map((ex) => (ex.id === id ? { ...ex, [field]: value } : ex))
+            );
+        } catch (err) {
+            console.error("Failed to update numeric property:", err);
         }
-
-        await updateDoc(doc(db, "schedules", selectedSchedule.id, "exercises", id), { [field]: value });
-
-        setPlannerExercises((prev) =>
-            prev.map((ex) => (ex.id === id ? { ...ex, [field]: value } : ex))
-        );
     };
 
     /* ================= WEEKLY MUSCLE LOGIC ================= */
     const getWeeklyMusclesHit = () => {
         const muscleTally: Record<string, number> = {};
 
-        // Loop through each day of the week
         Object.values(weeklyPlan).forEach(scheduleId => {
             if (!scheduleId) return;
 
-            // Find which muscles are hit ON THIS SPECIFIC DAY
             const musclesHitToday = new Set<string>();
-            const exerciseNames = scheduleExercisesCache[scheduleId] || [];
+            const exerciseData = scheduleExercisesCache[scheduleId] || [];
 
-            exerciseNames.forEach(name => {
-                const muscles = exerciseMuscleMap[name] || [];
+            exerciseData.forEach(ex => {
+                const muscles = ex.muscle ? [ex.muscle] : (exerciseMuscleMap[ex.name] || []);
                 muscles.forEach(m => musclesHitToday.add(m));
             });
 
-            // Add today's unique muscles to the total weekly tally
             musclesHitToday.forEach(m => {
                 muscleTally[m] = (muscleTally[m] || 0) + 1;
             });
         });
 
-        // Convert to an array of [muscle, count] and sort alphabetically
         return Object.entries(muscleTally).sort((a, b) => a[0].localeCompare(b[0]));
     };
 
@@ -405,7 +530,8 @@ function App() {
 
     const allMusclesSet = new Set<string>();
     allExercises.forEach((ex) => {
-        const muscles = (ex as any).muscles ?? ((ex as any).muscle ? [(ex as any).muscle] : []);
+        const extEx = ex as ExtendedExercise;
+        const muscles = extEx.muscles ?? (extEx.muscle ? [extEx.muscle] : []);
         muscles.forEach((m: string) => {
             if (m && typeof m === "string") allMusclesSet.add(m);
         });
@@ -415,11 +541,12 @@ function App() {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const displayedExercises = allExercises
         .filter((ex) => {
+            const extEx = ex as ExtendedExercise;
             if (normalizedQuery) {
-                if (!ex.name.toLowerCase().includes(normalizedQuery)) return false;
+                if (!extEx.name.toLowerCase().includes(normalizedQuery)) return false;
             }
             if (selectedFilters.length > 0) {
-                const muscles = (ex as any).muscles ?? ((ex as any).muscle ? [(ex as any).muscle] : []);
+                const muscles = extEx.muscles ?? (extEx.muscle ? [extEx.muscle] : []);
                 const match = muscles.some((m: string) => selectedFilters.includes(m));
                 return match;
             }
@@ -488,6 +615,31 @@ function App() {
                 </div>
             )}
 
+            {/* WELCOME SCREEN */}
+            {screen === "welcome" && (
+                <div className="welcome-screen">
+                    <h1>Welcome to EagleLift! 🦅</h1>
+                    <p>Let's get you started on your fitness journey.</p>
+                    <div className="welcome-steps">
+                        <div className="welcome-step">
+                            <h3>1. Create a Schedule</h3>
+                            <p>Start by creating a workout schedule on your dashboard (e.g., "Push Day", "Legs").</p>
+                        </div>
+                        <div className="welcome-step">
+                            <h3>2. Add Workouts</h3>
+                            <p>Open your schedule to add exercises. Search our database or create custom ones!</p>
+                        </div>
+                        <div className="welcome-step">
+                            <h3>3. Plan Your Week</h3>
+                            <p>Go to the Weekly Planner to assign your schedules to days of the week and track your muscle targets.</p>
+                        </div>
+                    </div>
+                    <button onClick={() => setScreen("dashboard")} style={{ marginTop: "24px", width: "100%", fontSize: "16px", padding: "12px" }}>
+                        Get Started
+                    </button>
+                </div>
+            )}
+
             {/* DASHBOARD */}
             {screen === "dashboard" && (
                 <div className="dashboard">
@@ -500,7 +652,7 @@ function App() {
                         </button>
                     </div>
 
-                    <div className="dashboard-header-buttons" style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+                    <div className="dashboard-header-buttons" style={{ display: "flex", gap: "10px", marginBottom: "20px", alignItems: "center" }}>
                         <button onClick={createSchedule}>Create Schedule</button>
                         <button
                             className="secondary logout-btn"
@@ -510,11 +662,15 @@ function App() {
                                 setSchedules([]);
                                 setSelectedSchedule(null);
                                 setPlannerExercises([]);
-                                setWeeklyPlan({});
+                                setWeeklyPlan({ ...defaultPlan });
+                                setScheduleExercisesCache({});
                             }}
                         >
                             Log Out
                         </button>
+                        <span style={{ marginLeft: "auto", fontSize: "14px", color: "var(--color-muted)", fontWeight: "bold" }}>
+                            {schedules.length} / 15 Schedules
+                        </span>
                     </div>
 
                     {schedules.map((schedule) => (
@@ -533,7 +689,7 @@ function App() {
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         const newName = prompt("Rename", schedule.name);
-                                        if (newName) renameSchedule(schedule.id, newName);
+                                        if (newName !== null) renameSchedule(schedule.id, newName);
                                     }}
                                 >
                                     ✎
@@ -592,7 +748,6 @@ function App() {
                                     </p>
                                 ) : (
                                     getWeeklyMusclesHit().map(([m, count]) => {
-                                        // Highlight the chip in Gold if they hit the 2x/week goal
                                         const metGoal = count >= 2;
 
                                         return (
@@ -660,15 +815,26 @@ function App() {
                                 {gyms.map((g) => <option key={g.name} value={g.name}>{g.name}</option>)}
                             </select>
 
-                            <div style={{ marginBottom: "12px" }}>
+                            <div style={{ marginBottom: "12px", display: "flex", gap: "8px", flexDirection: "column" }}>
                                 <input
-                                    placeholder="Custom exercise..."
+                                    placeholder="Custom exercise name..."
                                     value={customExercise}
                                     onChange={(e) => setCustomExercise((e.target as HTMLInputElement).value)}
+                                    maxLength={30}
                                 />
-                                <button onTouchEnd={handleCustomAddTouchEnd} onClick={handleCustomAddClick} style={{ marginTop: "6px" }}>
-                                    Add
-                                </button>
+                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                    <select
+                                        value={customMuscle}
+                                        onChange={(e) => setCustomMuscle((e.target as HTMLSelectElement).value)}
+                                        style={{ flex: 1, margin: 0 }}
+                                    >
+                                        <option value="">Select Target Muscle (Optional)</option>
+                                        {globalMuscles.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                    <button onTouchEnd={handleCustomAddTouchEnd} onClick={handleCustomAddClick}>
+                                        Add
+                                    </button>
+                                </div>
                             </div>
                           
                             <div style={{ marginBottom: "12px" }}>
@@ -746,7 +912,13 @@ function App() {
                         </div>
 
                         <div className="planner-right">
-                            <h3>Your Workout Plan</h3>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                                <h3 style={{ margin: 0 }}>Your Workout Plan</h3>
+                                <span style={{ fontSize: "14px", color: "var(--color-muted)", fontWeight: "bold" }}>
+                                    {plannerExercises.length} / 15 Workouts
+                                </span>
+                            </div>
+
                             <table className="planner-table">
                                 <thead>
                                     <tr>
@@ -759,31 +931,35 @@ function App() {
                                 <tbody>
                                     {plannerExercises.map((ex) => (
                                         <tr key={ex.id}>
-                                            <td>{ex.name}</td>
                                             <td>
-                                                <input type="number" value={ex.reps} onChange={(e) => { const val = Number((e.target as HTMLInputElement).value); if (val >= 0) updateExercise(ex.id, "reps", val); }} />
+                                                {ex.name}
+                                                {ex.muscle && (
+                                                    <div style={{ fontSize: "12px", color: "var(--color-muted)", marginTop: "4px" }}>
+                                                        Target: {ex.muscle}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td>
-                                                <input type="number" value={ex.sets} onChange={(e) => { const val = Number((e.target as HTMLInputElement).value); if (val >= 0) updateExercise(ex.id, "sets", val); }} />
+                                                <input type="number" value={ex.reps} onChange={(e) => { const val = Number((e.target as HTMLInputElement).value); if (!isNaN(val) && val >= 0) updateExercise(ex.id, "reps", val); }} />
                                             </td>
-                                            <td style={{ minWidth: 220 }}>
-                                                <WorkoutTimer
-                                                    exerciseId={ex.id}
-                                                    exerciseName={ex.name}
-                                                    sets={ex.sets}
-                                                    workSeconds={ex.timer}
-                                                    onWorkSecondsChange={(val) =>
-                                                        updateExercise(ex.id, "timer", val)
-                                                    }
-                                                />
-                                                <div style={{ marginTop: 8 }}>
-                                                    <button
-                                                        className="secondary"
-                                                        onClick={() => removeExerciseById(ex.id)}
-                                                        aria-label="Delete exercise"
-                                                    >
-                                                        🗑
-                                                    </button>
+                                            <td>
+                                                <input type="number" value={ex.sets} onChange={(e) => { const val = Number((e.target as HTMLInputElement).value); if (!isNaN(val) && val >= 0) updateExercise(ex.id, "sets", val); }} />
+                                            </td>
+                                            <td>
+                                                <div>
+                                                    {Math.floor(ex.timer / 60).toString().padStart(2, "0")}:{(ex.timer % 60).toString().padStart(2, "0")}
+                                                </div>
+                                                <input type="number" value={ex.timer} onChange={(e) => { const val = Number((e.target as HTMLInputElement).value); if (!isNaN(val) && val >= 0) setPlannerExercises((prev) => prev.map((item) => item.id === ex.id ? { ...item, timer: val } : item)); }} />
+                                                <div style={{ display: "flex", alignItems: "center", marginTop: "4px", gap: "16px" }}>
+                                                    <button className="secondary" onClick={() => removeExerciseById(ex.id)} aria-label="Delete exercise">🗑</button>
+                                                    <div style={{ display: "flex", gap: "6px" }}>
+                                                        <button onClick={() => setPlannerExercises((prev) => prev.map((item) => item.id === ex.id ? { ...item, isRunning: !item.isRunning } : item))}>
+                                                            {ex.isRunning ? "Stop" : "Start"}
+                                                        </button>
+                                                        <button onClick={() => setPlannerExercises((prev) => prev.map((item) => item.id === ex.id ? { ...item, timer: 0, isRunning: false } : item))}>
+                                                            Reset
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>
